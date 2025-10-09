@@ -1,8 +1,86 @@
 package agent
 
-import "runtime"
+import (
+	"errors"
+	"fmt"
+	"log"
+	"math/rand/v2"
+	"net/http"
+	"strconv"
+	"time"
+	"runtime"
+)
 
-func CollectMetrics() map[string]float64 {
+const pollInterval = 2
+const reportInterval = 10
+
+type MetricsAgent struct {
+	client *http.Client
+}
+
+func NewMetricsAgent(client *http.Client) *MetricsAgent {
+	return &MetricsAgent{
+		client: &http.Client{},
+	}
+}
+
+func (mh *MetricsAgent) StartMetricsAgent() {
+	var metrics map[string]float64
+	var poolCounter = 0
+	var lastReportTime = time.Now()
+	for {
+		metrics = collectMetrics()
+		poolCounter++
+		metrics["RandomValue"] = rand.Float64()
+
+		currentTime := time.Now()
+		if currentTime.Sub(lastReportTime) >= reportInterval*time.Second {
+			var errorCounter = 0
+			err := sendMetrics(metrics, mh.client, poolCounter)
+			if err != nil {
+				errorCounter++
+				log.Printf("[ERROR] %s", err)
+			}
+			log.Printf("all metrics sent. errors number %d", errorCounter)
+			lastReportTime = currentTime
+		}
+
+		time.Sleep(pollInterval * time.Second)
+	}
+}
+
+func sendMetrics(metrics map[string]float64, client *http.Client, poolCounter int) error {
+	for mName, mValue := range metrics {
+		path := fmt.Sprintf("/update/%s/%s/%f", "gauge", mName, mValue)
+
+		err := sendMetric(*client, "http://localhost:8080"+path)
+		if err != nil {
+			return err
+		}
+	}
+
+	path := fmt.Sprintf("/update/%s/%s/%d", "counter", "PollCount", poolCounter)
+	err := sendMetric(*client, "http://localhost:8080"+path)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func sendMetric(client http.Client, url string) error {
+	resp, err := client.Post(url, "text/plain", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return errors.New("[ERROR] HTTP status " + strconv.Itoa(resp.StatusCode))
+	}
+	return nil
+}
+
+func collectMetrics() map[string]float64 {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 

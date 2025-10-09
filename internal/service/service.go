@@ -2,47 +2,39 @@ package service
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/mrPTqp/metrics/internal/repository"
 )
 
-type MetricsService struct {
+type MetricsService interface {
+	ProcessGaugeMetric(mName string, mValue float64) error
+	ProcessCounterMetric(mName string, mValue int64) error
+}
+
+type BaseMetricService struct {
 	mr repository.MetricRepository
 }
 
-func NewMetricsService(mr repository.MetricRepository) *MetricsService {
-	return &MetricsService{
+func NewMetricsService(mr repository.MetricRepository) *BaseMetricService {
+	return &BaseMetricService{
 		mr: mr,
 	}
 }
 
-func (ms *MetricsService) ProcessMetric(metricType, name, value string) error {
-	switch metricType {
-	case "gauge":
-		specifiedValue, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			return err
-		}
-
-		err = ms.mr.AddGauge(name, specifiedValue)
-		if err != nil {
-            return err
-        }
-	case "counter":
-		specifiedValue, err := strconv.ParseInt(value, 10, 64)
-		if err != nil {
-			return err
-		}
-
-		err = ms.mr.AddCounter(name, specifiedValue)
-        if err != nil {
-            return err
-        }
-	default:
-        return fmt.Errorf("[ERROR] Invalid metric type")
+func (ms *BaseMetricService) ProcessGaugeMetric(mName string, mValue float64) error {
+	err := ms.mr.AddGauge(mName, mValue)
+	if err != nil {
+		return err
 	}
+	fmt.Printf("Successfully saved metric - Type: gauge, Name: %s, Value: %f\n", mName, mValue)
+	return nil
+}
 
-	fmt.Printf("Successfully saved metric - Type: %s, Name: %s, Value: %s\n", metricType, name, value)
+func (ms *BaseMetricService) ProcessCounterMetric(mName string, mValue int64) error {
+	err := ms.mr.AddCounter(mName, mValue)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Successfully saved metric - Type: counter, Name: %s, Value: %d\n", mName, mValue)
 	return nil
 }
