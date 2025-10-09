@@ -42,6 +42,22 @@ func (s *MemStorage) GetCounter(key string) (int64, error) {
 	}
 }
 
+func (s *MemStorage) ListGauges() map[string]float64 {
+	copyMap := make(map[string]float64, len(s.gauges))
+	for k, v := range s.gauges {
+		copyMap[k] = v
+	}
+	return copyMap
+}
+
+func (s *MemStorage) ListCounters() map[string]int64 {
+	copyMap := make(map[string]int64, len(s.counters))
+	for k, v := range s.counters {
+		copyMap[k] = v
+	}
+	return copyMap
+}
+
 func (s *MemStorage) logState() {
 	fmt.Println("Current MemStorage state:")
 	fmt.Println("Gauges:")

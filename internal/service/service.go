@@ -7,10 +7,11 @@ import (
 )
 
 type MetricsService interface {
-	ProcessGaugeMetric(mName string, mValue float64) error
-	ProcessCounterMetric(mName string, mValue int64) error
+	SaveGaugeMetric(mName string, mValue float64) error
+	SaveCounterMetric(mName string, mValue int64) error
 	GetGaugeMetric(mName string) (float64, error)
 	GetCounterMetric(mName string) (int64, error)
+	ListAllMetrics() (map[string]float64, map[string]int64)
 }
 
 type BaseMetricService struct {
@@ -23,7 +24,7 @@ func NewMetricsService(mr repository.MetricRepository) *BaseMetricService {
 	}
 }
 
-func (ms *BaseMetricService) ProcessGaugeMetric(mName string, mValue float64) error {
+func (ms *BaseMetricService) SaveGaugeMetric(mName string, mValue float64) error {
 	err := ms.mr.AddGauge(mName, mValue)
 	if err != nil {
 		return err
@@ -32,7 +33,7 @@ func (ms *BaseMetricService) ProcessGaugeMetric(mName string, mValue float64) er
 	return nil
 }
 
-func (ms *BaseMetricService) ProcessCounterMetric(mName string, mValue int64) error {
+func (ms *BaseMetricService) SaveCounterMetric(mName string, mValue int64) error {
 	err := ms.mr.AddCounter(mName, mValue)
 	if err != nil {
 		return err
@@ -57,4 +58,8 @@ func (ms *BaseMetricService) GetCounterMetric(mName string) (int64, error) {
 	}
 	fmt.Printf("Successfully saved metric - Type: counter, Name: %s, Value: %d\n", mName, mValue)
 	return mValue, nil
+}
+
+func (ms *BaseMetricService) ListAllMetrics() (map[string]float64, map[string]int64) {
+	return ms.mr.ListGauges(), ms.mr.ListCounters()
 }

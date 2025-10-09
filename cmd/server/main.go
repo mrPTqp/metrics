@@ -17,9 +17,10 @@ func main() {
 	mh := handler.NewMetricHandler(ms)
 
 	r := chi.NewRouter()
+	r.Get("/", mh.CollectMetricsHandler)
 	r.Route("/update", func(r chi.Router) {
 		r.Post("/{type}/{name}/{value}", mh.SaveMetricHandler)
-		})
+	})
 	r.Route("/value", func(r chi.Router) {
 		r.Get("/{type}/{name}", mh.GetMetricHandler)
 	})

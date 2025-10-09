@@ -3,6 +3,7 @@ package service
 import (
 	"testing"
 
+	"github.com/mrPTqp/metrics/internal/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -16,10 +17,21 @@ func (m *MockMetricRepository) AddGauge(name string, value float64) error {
 	args := m.Called(name, value)
 	return args.Error(0)
 }
-
 func (m *MockMetricRepository) AddCounter(name string, value int64) error {
 	args := m.Called(name, value)
 	return args.Error(0)
+}
+func (m *MockMetricRepository) GetGauge(name string) (float64, error) {
+	return 0, nil
+}
+func (m *MockMetricRepository) GetCounter(name string) (int64, error) {
+	return 0, nil
+}
+func (m *MockMetricRepository) ListGauges() map[string]float64 {
+	return map[string]float64{}
+}
+func (m *MockMetricRepository) ListCounters() map[string]int64 {
+	return map[string]int64{}
 }
 
 func TestProcessGaugeMetric(t *testing.T) {
@@ -52,7 +64,7 @@ func TestProcessGaugeMetric(t *testing.T) {
 			mockRepo.On("AddGauge", tt.mName, tt.mValue).Return(tt.repoError)
 
 			service := NewMetricsService(mockRepo)
-			err := service.ProcessGaugeMetric(tt.mName, tt.mValue)
+			err := service.SaveGaugeMetric(tt.mName, tt.mValue)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -95,7 +107,7 @@ func TestProcessCounterMetric(t *testing.T) {
 			mockRepo.On("AddCounter", tt.mName, tt.mValue).Return(tt.repoError)
 
 			service := NewMetricsService(mockRepo)
-			err := service.ProcessCounterMetric(tt.mName, tt.mValue)
+			err := service.SaveCounterMetric(tt.mName, tt.mValue)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -106,4 +118,16 @@ func TestProcessCounterMetric(t *testing.T) {
 			mockRepo.AssertExpectations(t)
 		})
 	}
+}
+
+func TestListAllMetrics(t *testing.T) {
+	mr := repository.NewMemStorage()
+	ms := NewMetricsService(mr)
+
+	_ = ms.SaveGaugeMetric("cpu", 3.14)
+	_ = ms.SaveCounterMetric("hits", 7)
+
+	gauges, counters := ms.ListAllMetrics()
+	assert.Equal(t, 3.14, gauges["cpu"])
+	assert.EqualValues(t, 7, counters["hits"])
 }

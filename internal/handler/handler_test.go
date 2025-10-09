@@ -1,151 +1,123 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-type mockMetricsService struct {
-	processGaugeCalls   []string
-	processCounterCalls []string
-	getGaugeValue       float64
-	getCounterValue     int64
+type mockService struct {
+	saveGaugeErr   error
+	saveCounterErr error
+
+	getGaugeVal float64
+	getGaugeErr error
+	getCountVal int64
+	getCountErr error
+
+	listGauges   map[string]float64
+	listCounters map[string]int64
 }
 
-func (m *mockMetricsService) ProcessGaugeMetric(name string, value float64) error {
-	m.processGaugeCalls = append(m.processGaugeCalls, name)
-	return nil
+func (m *mockService) SaveGaugeMetric(name string, value float64) error { return m.saveGaugeErr }
+func (m *mockService) SaveCounterMetric(name string, value int64) error { return m.saveCounterErr }
+func (m *mockService) GetGaugeMetric(name string) (float64, error) {
+	return m.getGaugeVal, m.getGaugeErr
 }
-
-func (m *mockMetricsService) ProcessCounterMetric(name string, value int64) error {
-	m.processCounterCalls = append(m.processCounterCalls, name)
-	return nil
+func (m *mockService) GetCounterMetric(name string) (int64, error) {
+	return m.getCountVal, m.getCountErr
 }
-
-func (m *mockMetricsService) GetGaugeMetric(name string) (float64, error) {
-	return m.getGaugeValue, nil
-}
-
-func (m *mockMetricsService) GetCounterMetric(name string) (int64, error) {
-	return m.getCounterValue, nil
-}
-
-func setupRouter(handler http.HandlerFunc) *chi.Mux {
-	r := chi.NewRouter()
-	// Make MethodNotAllowed return body consistent with handler's own check
-	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	})
-	r.Post("/metrics/{type}/{name}/{value}", handler)
-	r.Get("/metrics/{type}/{name}", handler)
-	return r
+func (m *mockService) ListAllMetrics() (map[string]float64, map[string]int64) {
+	if m.listGauges == nil {
+		m.listGauges = map[string]float64{}
+	}
+	if m.listCounters == nil {
+		m.listCounters = map[string]int64{}
+	}
+	return m.listGauges, m.listCounters
 }
 
 func TestSaveMetricHandler(t *testing.T) {
 	tests := []struct {
 		name           string
 		method         string
-		metricType     string
-		metricName     string
-		metricValue    string
-		expectedStatus int
-		expectedBody   string
+		url            string
+		mock           *mockService
+		wantStatus     int
+		wantCT         string
+		wantBodySubstr string
 	}{
 		{
-			name:           "InvalidMethod",
-			method:         http.MethodGet,
-			metricType:     "gauge",
-			metricName:     "test",
-			metricValue:    "123.45",
-			expectedStatus: http.StatusMethodNotAllowed,
-			expectedBody:   "Method not allowed\n",
+			name:       "ok gauge",
+			method:     http.MethodPost,
+			url:        "/update/gauge/cpu/1.23",
+			mock:       &mockService{},
+			wantStatus: http.StatusOK,
+			wantCT:     "text/plain; charset=utf-8",
 		},
 		{
-			name:           "InvalidMetricType",
+			name:           "bad type",
 			method:         http.MethodPost,
-			metricType:     "invalid",
-			metricName:     "test",
-			metricValue:    "123.45",
-			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "Invalid metric type\n",
+			url:            "/update/unknown/cpu/1.0",
+			mock:           &mockService{},
+			wantStatus:     http.StatusBadRequest,
+			wantCT:         "text/plain; charset=utf-8",
+			wantBodySubstr: "Invalid metric type",
 		},
 		{
-			name:           "InvalidMetricName",
+			name:           "bad gauge value",
 			method:         http.MethodPost,
-			metricType:     "gauge",
-			metricName:     "",
-			metricValue:    "123.45",
-			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "Invalid metric name\n",
+			url:            "/update/gauge/temp/not-a-number",
+			mock:           &mockService{},
+			wantStatus:     http.StatusBadRequest,
+			wantCT:         "text/plain; charset=utf-8",
+			wantBodySubstr: "Invalid gauge value",
 		},
 		{
-			name:           "InvalidGaugeValue",
-			method:         http.MethodPost,
-			metricType:     "gauge",
-			metricName:     "test",
-			metricValue:    "invalid",
-			expectedStatus: http.StatusBadRequest,
-			// handler logs the parse error but returns this body
-			expectedBody: "Invalid gauge value\n",
+			name:       "ok counter",
+			method:     http.MethodPost,
+			url:        "/update/counter/hits/10",
+			mock:       &mockService{},
+			wantStatus: http.StatusOK,
+			wantCT:     "text/plain; charset=utf-8",
 		},
 		{
-			name:           "InvalidCounterValue",
+			name:           "bad counter value",
 			method:         http.MethodPost,
-			metricType:     "counter",
-			metricName:     "test",
-			metricValue:    "notanumber",
-			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "Invalid counter value\n",
-		},
-		{
-			name:           "ValidGauge",
-			method:         http.MethodPost,
-			metricType:     "gauge",
-			metricName:     "cpu",
-			metricValue:    "123.45",
-			expectedStatus: http.StatusOK,
-			expectedBody:   "",
-		},
-		{
-			name:           "ValidCounter",
-			method:         http.MethodPost,
-			metricType:     "counter",
-			metricName:     "requests",
-			metricValue:    "456",
-			expectedStatus: http.StatusOK,
-			expectedBody:   "",
+			url:            "/update/counter/hits/notint",
+			mock:           &mockService{},
+			wantStatus:     http.StatusBadRequest,
+			wantCT:         "text/plain; charset=utf-8",
+			wantBodySubstr: "Invalid counter value",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockService := &mockMetricsService{}
-			handler := NewMetricHandler(mockService)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mh := NewMetricHandler(tc.mock)
+			r := chi.NewRouter()
+			r.Post("/update/{type}/{name}/{value}", mh.SaveMetricHandler)
 
-			r := setupRouter(handler.SaveMetricHandler)
+			req := httptest.NewRequest(tc.method, tc.url, nil)
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, req)
 
-			req, err := http.NewRequest(tt.method, fmt.Sprintf("/metrics/%s/%s/%s",
-				tt.metricType, tt.metricName, tt.metricValue), nil)
-			require.NoError(t, err)
+			res := rec.Result()
+			t.Cleanup(func() { _ = res.Body.Close() })
 
-			rr := httptest.NewRecorder()
-			r.ServeHTTP(rr, req)
-
-			assert.Equal(t, tt.expectedStatus, rr.Code)
-			assert.Equal(t, tt.expectedBody, rr.Body.String())
-
-			if tt.expectedStatus == http.StatusOK {
-				switch tt.metricType {
-				case "gauge":
-					assert.Contains(t, mockService.processGaugeCalls, tt.metricName)
-				case "counter":
-					assert.Contains(t, mockService.processCounterCalls, tt.metricName)
+			if res.StatusCode != tc.wantStatus {
+				t.Fatalf("status = %d, want %d", res.StatusCode, tc.wantStatus)
+			}
+			if ct := res.Header.Get("Content-Type"); ct != tc.wantCT {
+				t.Fatalf("content-type = %q, want %q", ct, tc.wantCT)
+			}
+			if tc.wantBodySubstr != "" {
+				body := rec.Body.String()
+				if !strings.Contains(body, tc.wantBodySubstr) {
+					t.Fatalf("body %q does not contain %q", body, tc.wantBodySubstr)
 				}
 			}
 		})
@@ -156,81 +128,98 @@ func TestGetMetricHandler(t *testing.T) {
 	tests := []struct {
 		name           string
 		method         string
-		metricType     string
-		metricName     string
-		setupMock      func(*mockMetricsService)
-		expectedStatus int
-		expectedBody   string
+		url            string
+		mock           *mockService
+		wantStatus     int
+		wantCT         string
+		wantBodySubstr string
 	}{
 		{
-			name:           "InvalidMethod",
-			method:         http.MethodPost,
-			metricType:     "gauge",
-			metricName:     "test",
-			setupMock:      func(m *mockMetricsService) {},
-			expectedStatus: http.StatusMethodNotAllowed,
-			expectedBody:   "Method not allowed\n",
-		},
-		{
-			name:           "InvalidMetricType",
-			method:         http.MethodGet,
-			metricType:     "invalid",
-			metricName:     "test",
-			setupMock:      func(m *mockMetricsService) {},
-			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "Invalid metric type\n",
-		},
-		{
-			name:           "InvalidMetricName",
-			method:         http.MethodGet,
-			metricType:     "gauge",
-			metricName:     "",
-			setupMock:      func(m *mockMetricsService) {},
-			expectedStatus: http.StatusNotFound,
-			expectedBody:   "404 page not found\n",
-		},
-		{
-			name:       "ValidGauge",
+			name:       "get gauge ok",
 			method:     http.MethodGet,
-			metricType: "gauge",
-			metricName: "temp",
-			setupMock: func(m *mockMetricsService) {
-				m.getGaugeValue = 123.45
-			},
-			expectedStatus: http.StatusOK,
-			expectedBody:   "123.450000",
+			url:        "/value/gauge/temp",
+			mock:       &mockService{getGaugeVal: 3.5},
+			wantStatus: http.StatusOK,
+			wantCT:     "text/plain; charset=utf-8",
+			wantBodySubstr: "3.5",
 		},
 		{
-			name:       "ValidCounter",
-			method:     http.MethodGet,
-			metricType: "counter",
-			metricName: "hits",
-			setupMock: func(m *mockMetricsService) {
-				m.getCounterValue = 456
-			},
-			expectedStatus: http.StatusOK,
-			expectedBody:   "456",
+			name:           "get counter ok",
+			method:         http.MethodGet,
+			url:            "/value/counter/hits",
+			mock:           &mockService{getCountVal: 42},
+			wantStatus:     http.StatusOK,
+			wantCT:         "text/plain; charset=utf-8",
+			wantBodySubstr: "42",
+		},
+		{
+			name:           "bad type",
+			method:         http.MethodGet,
+			url:            "/value/unknown/x",
+			mock:           &mockService{},
+			wantStatus:     http.StatusBadRequest,
+			wantCT:         "text/plain; charset=utf-8",
+			wantBodySubstr: "Invalid metric type",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockService := &mockMetricsService{}
-			tt.setupMock(mockService)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mh := NewMetricHandler(tc.mock)
+			r := chi.NewRouter()
+			r.Get("/value/{type}/{name}", mh.GetMetricHandler)
 
-			handler := NewMetricHandler(mockService)
+			req := httptest.NewRequest(tc.method, tc.url, nil)
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, req)
 
-			r := setupRouter(handler.GetMetricHandler)
+			res := rec.Result()
+			t.Cleanup(func() { _ = res.Body.Close() })
 
-			req, err := http.NewRequest(tt.method, fmt.Sprintf("/metrics/%s/%s",
-				tt.metricType, tt.metricName), nil)
-			require.NoError(t, err)
-
-			rr := httptest.NewRecorder()
-			r.ServeHTTP(rr, req)
-
-			assert.Equal(t, tt.expectedStatus, rr.Code)
-			assert.Equal(t, tt.expectedBody, rr.Body.String())
+			if res.StatusCode != tc.wantStatus {
+				t.Fatalf("status = %d, want %d", res.StatusCode, tc.wantStatus)
+			}
+			if ct := res.Header.Get("Content-Type"); ct != tc.wantCT {
+				t.Fatalf("content-type = %q, want %q", ct, tc.wantCT)
+			}
+			if tc.wantBodySubstr != "" {
+				body := rec.Body.String()
+				if !strings.Contains(body, tc.wantBodySubstr) {
+					t.Fatalf("body %q does not contain %q", body, tc.wantBodySubstr)
+				}
+			}
 		})
+	}
+}
+
+func TestCollectMetricsHandler(t *testing.T) {
+	mock := &mockService{
+		listGauges: map[string]float64{
+			"temp": 22.5,
+		},
+		listCounters: map[string]int64{
+			"hits": 7,
+		},
+	}
+	mh := NewMetricHandler(mock)
+	r := chi.NewRouter()
+	r.Get("/", mh.CollectMetricsHandler)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	res := rec.Result()
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
+	}
+	if ct := res.Header.Get("Content-Type"); ct != "text/html; charset=utf-8" {
+		t.Fatalf("content-type = %q, want %q", ct, "text/html; charset=utf-8")
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Metrics") || !strings.Contains(body, "temp") || !strings.Contains(body, "hits") {
+		t.Fatalf("unexpected html body: %q", body)
 	}
 }
