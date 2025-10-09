@@ -26,6 +26,22 @@ func (s *MemStorage) AddCounter(key string, value int64) error {
 	return nil
 }
 
+func (s *MemStorage) GetGauge(key string) (float64, error) {
+	if val, ok := s.gauges[key]; ok {
+		return val, nil
+	} else {
+		return 0, fmt.Errorf("gauge %s not found", key)
+	}
+}
+
+func (s *MemStorage) GetCounter(key string) (int64, error) {
+	if val, ok := s.counters[key]; ok {
+		return val, nil
+	} else {
+		return 0, fmt.Errorf("counter %s not found", key)
+	}
+}
+
 func (s *MemStorage) logState() {
 	fmt.Println("Current MemStorage state:")
 	fmt.Println("Gauges:")
