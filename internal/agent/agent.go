@@ -6,13 +6,10 @@ import (
 	"log"
 	"math/rand/v2"
 	"net/http"
+	"runtime"
 	"strconv"
 	"time"
-	"runtime"
 )
-
-const pollInterval = 2
-const reportInterval = 10
 
 type MetricsAgent struct {
 	client *http.Client
@@ -24,7 +21,9 @@ func NewMetricsAgent(client *http.Client) *MetricsAgent {
 	}
 }
 
-func (mh *MetricsAgent) StartMetricsAgent() {
+func (mh *MetricsAgent) StartMetricsAgent(address string, reportInterval, poolInterval int) {
+	log.Printf("client will send requests to %s", address)
+
 	var metrics map[string]float64
 	var poolCounter = 0
 	var lastReportTime = time.Now()
@@ -34,9 +33,9 @@ func (mh *MetricsAgent) StartMetricsAgent() {
 		metrics["RandomValue"] = rand.Float64()
 
 		currentTime := time.Now()
-		if currentTime.Sub(lastReportTime) >= reportInterval*time.Second {
+		if currentTime.Sub(lastReportTime) >= time.Duration(reportInterval)*time.Second {
 			var errorCounter = 0
-			err := sendMetrics(metrics, mh.client, poolCounter)
+			err := sendMetrics(metrics, mh.client, poolCounter, address)
 			if err != nil {
 				errorCounter++
 				log.Printf("[ERROR] %s", err)
@@ -45,22 +44,22 @@ func (mh *MetricsAgent) StartMetricsAgent() {
 			lastReportTime = currentTime
 		}
 
-		time.Sleep(pollInterval * time.Second)
+		time.Sleep(time.Duration(poolInterval) * time.Second)
 	}
 }
 
-func sendMetrics(metrics map[string]float64, client *http.Client, poolCounter int) error {
+func sendMetrics(metrics map[string]float64, client *http.Client, poolCounter int, address string) error {
 	for mName, mValue := range metrics {
 		path := fmt.Sprintf("/update/%s/%s/%f", "gauge", mName, mValue)
 
-		err := sendMetric(*client, "http://localhost:8080"+path)
+		err := sendMetric(*client, "http://"+address+path)
 		if err != nil {
 			return err
 		}
 	}
 
 	path := fmt.Sprintf("/update/%s/%s/%d", "counter", "PollCount", poolCounter)
-	err := sendMetric(*client, "http://localhost:8080"+path)
+	err := sendMetric(*client, "http://"+address+path)
 	if err != nil {
 		return err
 	}

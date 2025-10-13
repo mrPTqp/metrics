@@ -12,6 +12,8 @@ import (
 )
 
 func main() {
+	parseFlags()
+
 	mr := repository.NewMemStorage()
 	ms := service.NewMetricsService(mr)
 	mh := handler.NewMetricHandler(ms)
@@ -26,9 +28,9 @@ func main() {
 	})
 
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    address.String(),
 		Handler: r,
 	}
-	log.Println("Server running on :8080")
+	log.Printf("Server running on %s", address.String())
 	log.Fatal(srv.ListenAndServe())
 }

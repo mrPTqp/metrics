@@ -8,10 +8,12 @@ import (
 )
 
 func main() {
+	parseFlags()
+
 	client := &http.Client{
 		Timeout: time.Second * 30,
 	}
 
 	a := agent.NewMetricsAgent(client)
-	a.StartMetricsAgent()
+	a.StartMetricsAgent(address.String(), reportInterval, poolInterval)
 }
