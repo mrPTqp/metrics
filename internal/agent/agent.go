@@ -22,7 +22,7 @@ func NewMetricsAgent(client *http.Client) *MetricsAgent {
 }
 
 func (mh *MetricsAgent) StartMetricsAgent(address string, reportInterval, poolInterval int) {
-	log.Printf("client will send requests to %s", address)
+	log.Printf("agent will send requests to %s", address)
 
 	var metrics map[string]float64
 	var poolCounter = 0

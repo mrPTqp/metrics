@@ -11,8 +11,16 @@ import (
 	"github.com/mrPTqp/metrics/internal/service"
 )
 
+type NetAddress struct {
+	Host string
+	Port int
+}
+
+var address NetAddress = NetAddress{"localhost", 8080}
+
 func main() {
 	parseFlags()
+	parseEnvs()
 
 	mr := repository.NewMemStorage()
 	ms := service.NewMetricsService(mr)

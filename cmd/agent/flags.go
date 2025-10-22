@@ -8,11 +8,6 @@ import (
 	"strings"
 )
 
-type NetAddress struct {
-	Host string
-	Port int
-}
-
 func (na *NetAddress) String() string {
 	return fmt.Sprint(na.Host + ":" + strconv.Itoa(na.Port))
 }
@@ -27,10 +22,6 @@ func (na *NetAddress) Set(flagValue string) error {
 	}
 	return nil
 }
-
-var address NetAddress = NetAddress{"localhost", 8080}
-var reportInterval int
-var poolInterval int
 
 func parseFlags() {
 	flag.Var(&address, "a", "address and port to send client requests")
