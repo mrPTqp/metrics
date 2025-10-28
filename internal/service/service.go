@@ -1,9 +1,8 @@
 package service
 
 import (
-	"fmt"
-
 	"github.com/mrPTqp/metrics/internal/repository"
+	"go.uber.org/zap"
 )
 
 type MetricsService interface {
@@ -16,11 +15,13 @@ type MetricsService interface {
 
 type BaseMetricService struct {
 	mr repository.MetricRepository
+	logger *zap.SugaredLogger
 }
 
-func NewMetricsService(mr repository.MetricRepository) *BaseMetricService {
+func NewMetricsService(mr repository.MetricRepository, logger *zap.SugaredLogger) *BaseMetricService {
 	return &BaseMetricService{
 		mr: mr,
+		logger: logger,
 	}
 }
 
@@ -29,7 +30,7 @@ func (ms *BaseMetricService) SaveGaugeMetric(mName string, mValue float64) error
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Successfully saved metric - Type: gauge, Name: %s, Value: %f\n", mName, mValue)
+	ms.logger.Infof("Successfully saved metric - Type: gauge, Name: %s, Value: %f\n", mName, mValue)
 	return nil
 }
 
@@ -38,7 +39,7 @@ func (ms *BaseMetricService) SaveCounterMetric(mName string, mValue int64) error
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Successfully saved metric - Type: counter, Name: %s, Value: %d\n", mName, mValue)
+	ms.logger.Infof("Successfully saved metric - Type: counter, Name: %s, Value: %d\n", mName, mValue)
 	return nil
 }
 
@@ -47,7 +48,7 @@ func (ms *BaseMetricService) GetGaugeMetric(mName string) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	fmt.Printf("Successfully saved metric - Type: gauge, Name: %s, Value: %f\n", mName, mValue)
+	ms.logger.Infof("Successfully saved metric - Type: gauge, Name: %s, Value: %f\n", mName, mValue)
 	return mValue, nil
 }
 
@@ -56,7 +57,7 @@ func (ms *BaseMetricService) GetCounterMetric(mName string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	fmt.Printf("Successfully saved metric - Type: counter, Name: %s, Value: %d\n", mName, mValue)
+	ms.logger.Infof("Successfully saved metric - Type: counter, Name: %s, Value: %d\n", mName, mValue)
 	return mValue, nil
 }
 

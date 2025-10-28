@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestMemStorage_ListMethods(t *testing.T) {
-	s := NewMemStorage()
+	s := NewMemStorage(zap.NewNop().Sugar())
 	_ = s.AddGauge("cpu", 2.5)
 	_ = s.AddCounter("hits", 3)
 

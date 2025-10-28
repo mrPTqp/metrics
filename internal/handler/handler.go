@@ -2,22 +2,24 @@ package handler
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/mrPTqp/metrics/internal/service"
+	"go.uber.org/zap"
 )
 
 type MetricHandler struct {
 	service service.MetricsService
+	logger *zap.SugaredLogger
 }
 
-func NewMetricHandler(service service.MetricsService) *MetricHandler {
+func NewMetricHandler(service service.MetricsService, logger *zap.SugaredLogger) *MetricHandler {
 	return &MetricHandler{
 		service: service,
+		logger: logger,
 	}
 }
 
@@ -44,26 +46,26 @@ func (mh *MetricHandler) SaveMetricHandler(w http.ResponseWriter, r *http.Reques
 	case "gauge":
 		floatValue, err := strconv.ParseFloat(mValue, 64)
 		if err != nil {
-			log.Printf("Error parsing gauge value: %v", err)
+			mh.logger.Error("Error parsing gauge value: %v", err)
 			http.Error(w, "Invalid gauge value", http.StatusBadRequest)
 			return
 		}
 		err = mh.service.SaveGaugeMetric(mName, floatValue)
 		if err != nil {
-			log.Printf("Error processing gauge metric: %v", err)
+			mh.logger.Error("Error processing gauge metric: %v", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	case "counter":
 		intValue, err := strconv.ParseInt(mValue, 10, 64)
 		if err != nil {
-			log.Printf("Error parsing counter value: %v", err)
+			mh.logger.Error("Error parsing counter value: %v", err)
 			http.Error(w, "Invalid counter value", http.StatusBadRequest)
 			return
 		}
 		err = mh.service.SaveCounterMetric(mName, intValue)
 		if err != nil {
-			log.Printf("Error processing counter metric: %v", err)
+			mh.logger.Error("Error processing counter metric: %v", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -95,7 +97,7 @@ func (mh *MetricHandler) GetMetricHandler(w http.ResponseWriter, r *http.Request
 	case "gauge":
 		mValue, err := mh.service.GetGaugeMetric(mName)
 		if err != nil {
-			log.Printf("Error getting gauge metric: %v", err)
+			mh.logger.Error("Error getting gauge metric: %v", err)
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
@@ -104,14 +106,14 @@ func (mh *MetricHandler) GetMetricHandler(w http.ResponseWriter, r *http.Request
 	case "counter":
 		mValue, err := mh.service.GetCounterMetric(mName)
 		if err != nil {
-			log.Printf("Error getting counter metric: %v", err)
+			mh.logger.Error("Error getting counter metric: %v", err)
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(fmt.Sprintf("%d", mValue)))
 	default:
-		log.Printf("Unsupported metric type: %s", mType)
+		mh.logger.Error("Unsupported metric type: %s", mType)
 		http.Error(w, "Unsupported metric type", http.StatusBadRequest)
 		return
 	}

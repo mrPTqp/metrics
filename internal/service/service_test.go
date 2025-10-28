@@ -6,6 +6,7 @@ import (
 	"github.com/mrPTqp/metrics/internal/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"go.uber.org/zap"
 )
 
 // MockMetricRepository - mock implementation of MetricRepository
@@ -63,7 +64,7 @@ func TestProcessGaugeMetric(t *testing.T) {
 			mockRepo := new(MockMetricRepository)
 			mockRepo.On("AddGauge", tt.mName, tt.mValue).Return(tt.repoError)
 
-			service := NewMetricsService(mockRepo)
+			service := NewMetricsService(mockRepo, zap.NewNop().Sugar())
 			err := service.SaveGaugeMetric(tt.mName, tt.mValue)
 
 			if tt.wantErr {
@@ -106,7 +107,7 @@ func TestProcessCounterMetric(t *testing.T) {
 			mockRepo := new(MockMetricRepository)
 			mockRepo.On("AddCounter", tt.mName, tt.mValue).Return(tt.repoError)
 
-			service := NewMetricsService(mockRepo)
+			service := NewMetricsService(mockRepo, zap.NewNop().Sugar())
 			err := service.SaveCounterMetric(tt.mName, tt.mValue)
 
 			if tt.wantErr {
@@ -121,8 +122,8 @@ func TestProcessCounterMetric(t *testing.T) {
 }
 
 func TestListAllMetrics(t *testing.T) {
-	mr := repository.NewMemStorage()
-	ms := NewMetricsService(mr)
+	mr := repository.NewMemStorage(zap.NewNop().Sugar())
+	ms := NewMetricsService(mr, zap.NewNop().Sugar())
 
 	_ = ms.SaveGaugeMetric("cpu", 3.14)
 	_ = ms.SaveCounterMetric("hits", 7)

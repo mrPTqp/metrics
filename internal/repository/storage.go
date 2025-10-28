@@ -1,16 +1,22 @@
 package repository
 
-import "fmt"
+import (
+	"fmt"
+
+	"go.uber.org/zap"
+)
 
 type MemStorage struct {
 	gauges   map[string]float64
 	counters map[string]int64
+	logger   *zap.SugaredLogger
 }
 
-func NewMemStorage() *MemStorage {
+func NewMemStorage(logger *zap.SugaredLogger) *MemStorage {
 	return &MemStorage{
 		gauges:   make(map[string]float64),
 		counters: make(map[string]int64),
+		logger:   logger,
 	}
 }
 
@@ -59,14 +65,15 @@ func (s *MemStorage) ListCounters() map[string]int64 {
 }
 
 func (s *MemStorage) logState() {
-	fmt.Println("Current MemStorage state:")
-	fmt.Println("Gauges:")
+	var log = s.logger
+	log.Infoln("Current MemStorage state:")
+	log.Infoln("Gauges:")
 	for k, v := range s.gauges {
-		fmt.Printf("  %s: %f\n", k, v)
+		log.Infof("  %s: %f\n", k, v)
 	}
-	fmt.Println("Counters:")
+	log.Infoln("Counters:")
 	for k, v := range s.counters {
-		fmt.Printf("  %s: %d\n", k, v)
+		log.Infof("  %s: %d\n", k, v)
 	}
-	fmt.Println("-------------------------")
+	log.Infoln("-------------------------")
 }

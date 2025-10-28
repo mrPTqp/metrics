@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 type mockService struct {
@@ -97,7 +98,7 @@ func TestSaveMetricHandler(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mh := NewMetricHandler(tc.mock)
+			mh := NewMetricHandler(tc.mock, zap.NewNop().Sugar())
 			r := chi.NewRouter()
 			r.Post("/update/{type}/{name}/{value}", mh.SaveMetricHandler)
 
@@ -135,12 +136,12 @@ func TestGetMetricHandler(t *testing.T) {
 		wantBodySubstr string
 	}{
 		{
-			name:       "get gauge ok",
-			method:     http.MethodGet,
-			url:        "/value/gauge/temp",
-			mock:       &mockService{getGaugeVal: 3.5},
-			wantStatus: http.StatusOK,
-			wantCT:     "text/plain; charset=utf-8",
+			name:           "get gauge ok",
+			method:         http.MethodGet,
+			url:            "/value/gauge/temp",
+			mock:           &mockService{getGaugeVal: 3.5},
+			wantStatus:     http.StatusOK,
+			wantCT:         "text/plain; charset=utf-8",
 			wantBodySubstr: "3.5",
 		},
 		{
@@ -165,7 +166,7 @@ func TestGetMetricHandler(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mh := NewMetricHandler(tc.mock)
+			mh := NewMetricHandler(tc.mock, zap.NewNop().Sugar())
 			r := chi.NewRouter()
 			r.Get("/value/{type}/{name}", mh.GetMetricHandler)
 
@@ -201,7 +202,7 @@ func TestCollectMetricsHandler(t *testing.T) {
 			"hits": 7,
 		},
 	}
-	mh := NewMetricHandler(mock)
+	mh := NewMetricHandler(mock, zap.NewNop().Sugar())
 	r := chi.NewRouter()
 	r.Get("/", mh.CollectMetricsHandler)
 
