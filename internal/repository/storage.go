@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"sync"
 
 	"go.uber.org/zap"
 )
@@ -10,6 +11,7 @@ type MemStorage struct {
 	gauges   map[string]float64
 	counters map[string]int64
 	logger   *zap.SugaredLogger
+	mu       sync.RWMutex
 }
 
 func NewMemStorage(logger *zap.SugaredLogger) *MemStorage {
@@ -20,19 +22,25 @@ func NewMemStorage(logger *zap.SugaredLogger) *MemStorage {
 	}
 }
 
-func (s *MemStorage) AddGauge(key string, value float64) error {
-	s.gauges[key] = value
+func (s *MemStorage) AddGauge(key string, value *float64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.gauges[key] = *value
 	s.logState()
 	return nil
 }
 
-func (s *MemStorage) AddCounter(key string, value int64) error {
-	s.counters[key] += value
+func (s *MemStorage) AddCounter(key string, value *int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.counters[key] += *value
 	s.logState()
 	return nil
 }
 
 func (s *MemStorage) GetGauge(key string) (float64, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if val, ok := s.gauges[key]; ok {
 		return val, nil
 	} else {
@@ -41,6 +49,8 @@ func (s *MemStorage) GetGauge(key string) (float64, error) {
 }
 
 func (s *MemStorage) GetCounter(key string) (int64, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if val, ok := s.counters[key]; ok {
 		return val, nil
 	} else {
@@ -49,6 +59,8 @@ func (s *MemStorage) GetCounter(key string) (int64, error) {
 }
 
 func (s *MemStorage) ListGauges() map[string]float64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	copyMap := make(map[string]float64, len(s.gauges))
 	for k, v := range s.gauges {
 		copyMap[k] = v
@@ -57,6 +69,8 @@ func (s *MemStorage) ListGauges() map[string]float64 {
 }
 
 func (s *MemStorage) ListCounters() map[string]int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	copyMap := make(map[string]int64, len(s.counters))
 	for k, v := range s.counters {
 		copyMap[k] = v

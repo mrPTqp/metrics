@@ -14,28 +14,37 @@ type MockMetricRepository struct {
 	mock.Mock
 }
 
-func (m *MockMetricRepository) AddGauge(name string, value float64) error {
+func (m *MockMetricRepository) AddGauge(name string, value *float64) error {
 	args := m.Called(name, value)
 	return args.Error(0)
-}
-func (m *MockMetricRepository) AddCounter(name string, value int64) error {
-	args := m.Called(name, value)
-	return args.Error(0)
-}
-func (m *MockMetricRepository) GetGauge(name string) (float64, error) {
-	return 0, nil
-}
-func (m *MockMetricRepository) GetCounter(name string) (int64, error) {
-	return 0, nil
-}
-func (m *MockMetricRepository) ListGauges() map[string]float64 {
-	return map[string]float64{}
-}
-func (m *MockMetricRepository) ListCounters() map[string]int64 {
-	return map[string]int64{}
 }
 
-func TestProcessGaugeMetric(t *testing.T) {
+func (m *MockMetricRepository) AddCounter(name string, value *int64) error {
+	args := m.Called(name, value)
+	return args.Error(0)
+}
+
+func (m *MockMetricRepository) GetGauge(name string) (float64, error) {
+	args := m.Called(name)
+	return args.Get(0).(float64), args.Error(1)
+}
+
+func (m *MockMetricRepository) GetCounter(name string) (int64, error) {
+	args := m.Called(name)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockMetricRepository) ListGauges() map[string]float64 {
+	args := m.Called()
+	return args.Get(0).(map[string]float64)
+}
+
+func (m *MockMetricRepository) ListCounters() map[string]int64 {
+	args := m.Called()
+	return args.Get(0).(map[string]int64)
+}
+
+func TestSaveGaugeMetric(t *testing.T) {
 	tests := []struct {
 		name      string
 		mName     string
@@ -62,10 +71,11 @@ func TestProcessGaugeMetric(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockRepo := new(MockMetricRepository)
-			mockRepo.On("AddGauge", tt.mName, tt.mValue).Return(tt.repoError)
+			expectedValue := tt.mValue
+			mockRepo.On("AddGauge", tt.mName, &expectedValue).Return(tt.repoError)
 
 			service := NewMetricsService(mockRepo, zap.NewNop().Sugar())
-			err := service.SaveGaugeMetric(tt.mName, tt.mValue)
+			err := service.SaveGaugeMetric(tt.mName, &tt.mValue) // передаём указатель
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -78,7 +88,7 @@ func TestProcessGaugeMetric(t *testing.T) {
 	}
 }
 
-func TestProcessCounterMetric(t *testing.T) {
+func TestSaveCounterMetric(t *testing.T) {
 	tests := []struct {
 		name      string
 		mName     string
@@ -105,10 +115,11 @@ func TestProcessCounterMetric(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockRepo := new(MockMetricRepository)
-			mockRepo.On("AddCounter", tt.mName, tt.mValue).Return(tt.repoError)
+			expectedValue := tt.mValue
+			mockRepo.On("AddCounter", tt.mName, &expectedValue).Return(tt.repoError)
 
 			service := NewMetricsService(mockRepo, zap.NewNop().Sugar())
-			err := service.SaveCounterMetric(tt.mName, tt.mValue)
+			err := service.SaveCounterMetric(tt.mName, &tt.mValue) // передаём указатель
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -122,13 +133,23 @@ func TestProcessCounterMetric(t *testing.T) {
 }
 
 func TestListAllMetrics(t *testing.T) {
-	mr := repository.NewMemStorage(zap.NewNop().Sugar())
-	ms := NewMetricsService(mr, zap.NewNop().Sugar())
+	logger := zap.NewNop().Sugar()
+	storage := repository.NewMemStorage(logger)
+	metricService := NewMetricsService(storage, logger)
 
-	_ = ms.SaveGaugeMetric("cpu", 3.14)
-	_ = ms.SaveCounterMetric("hits", 7)
+	_ = metricService.SaveGaugeMetric("test_gauge", ptr(3.14))
+	_ = metricService.SaveCounterMetric("test_counter", ptr(int64(3)))
+	_ = metricService.SaveCounterMetric("test_counter", ptr(int64(4))) // adds to existing
 
-	gauges, counters := ms.ListAllMetrics()
-	assert.Equal(t, 3.14, gauges["cpu"])
-	assert.EqualValues(t, 7, counters["hits"])
+	gauges, counters := metricService.ListAllMetrics()
+
+	gaugeVal, ok := gauges["test_gauge"]
+	assert.True(t, ok, "expected gauge 'test_gauge' to exist")
+	assert.Equal(t, 3.14, gaugeVal)
+
+	counterVal, ok := counters["test_counter"]
+	assert.True(t, ok, "expected counter 'test_counter' to exist")
+	assert.Equal(t, int64(7), counterVal)
 }
+
+func ptr[T any](v T) *T { return &v }

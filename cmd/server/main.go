@@ -25,7 +25,7 @@ func main() {
 
 	var sugar *zap.SugaredLogger
 	logger, err := zap.NewDevelopment()
-	if err != nil {		
+	if err != nil {
 		panic(err)
 	}
 	defer logger.Sync()
@@ -39,10 +39,13 @@ func main() {
 	r := chi.NewRouter()
 	r.Get("/", middleware.WithLogging(mh.CollectMetricsHandler, sugar))
 	r.Route("/update", func(r chi.Router) {
+		r.Post("/", middleware.WithLogging(mh.SaveMetricHandlerJSON, sugar))
 		r.Post("/{type}/{name}/{value}", middleware.WithLogging(mh.SaveMetricHandler, sugar))
 	})
 	r.Route("/value", func(r chi.Router) {
+		r.Post("/", middleware.WithLogging(mh.ValueMetricHandlerJSON, sugar))
 		r.Get("/{type}/{name}", middleware.WithLogging(mh.GetMetricHandler, sugar))
+
 	})
 
 	srv := &http.Server{

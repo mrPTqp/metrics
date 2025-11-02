@@ -6,8 +6,8 @@ import (
 )
 
 type MetricsService interface {
-	SaveGaugeMetric(mName string, mValue float64) error
-	SaveCounterMetric(mName string, mValue int64) error
+	SaveGaugeMetric(mName string, mValue *float64) error
+	SaveCounterMetric(mName string, mValue *int64) error
 	GetGaugeMetric(mName string) (float64, error)
 	GetCounterMetric(mName string) (int64, error)
 	ListAllMetrics() (map[string]float64, map[string]int64)
@@ -25,7 +25,7 @@ func NewMetricsService(mr repository.MetricRepository, logger *zap.SugaredLogger
 	}
 }
 
-func (ms *BaseMetricService) SaveGaugeMetric(mName string, mValue float64) error {
+func (ms *BaseMetricService) SaveGaugeMetric(mName string, mValue *float64) error {
 	err := ms.mr.AddGauge(mName, mValue)
 	if err != nil {
 		return err
@@ -34,7 +34,7 @@ func (ms *BaseMetricService) SaveGaugeMetric(mName string, mValue float64) error
 	return nil
 }
 
-func (ms *BaseMetricService) SaveCounterMetric(mName string, mValue int64) error {
+func (ms *BaseMetricService) SaveCounterMetric(mName string, mValue *int64) error {
 	err := ms.mr.AddCounter(mName, mValue)
 	if err != nil {
 		return err
@@ -48,7 +48,7 @@ func (ms *BaseMetricService) GetGaugeMetric(mName string) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	ms.logger.Infof("Successfully saved metric - Type: gauge, Name: %s, Value: %f\n", mName, mValue)
+	ms.logger.Infof("Successfully return metric - Type: gauge, Name: %s, Value: %f\n", mName, mValue)
 	return mValue, nil
 }
 
@@ -57,7 +57,7 @@ func (ms *BaseMetricService) GetCounterMetric(mName string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	ms.logger.Infof("Successfully saved metric - Type: counter, Name: %s, Value: %d\n", mName, mValue)
+	ms.logger.Infof("Successfully return metric - Type: counter, Name: %s, Value: %d\n", mName, mValue)
 	return mValue, nil
 }
 

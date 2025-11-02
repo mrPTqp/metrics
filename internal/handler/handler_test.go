@@ -1,12 +1,16 @@
 package handler
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/mrPTqp/metrics/internal/models"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
 
@@ -23,8 +27,8 @@ type mockService struct {
 	listCounters map[string]int64
 }
 
-func (m *mockService) SaveGaugeMetric(name string, value float64) error { return m.saveGaugeErr }
-func (m *mockService) SaveCounterMetric(name string, value int64) error { return m.saveCounterErr }
+func (m *mockService) SaveGaugeMetric(name string, value *float64) error { return m.saveGaugeErr }
+func (m *mockService) SaveCounterMetric(name string, value *int64) error { return m.saveCounterErr }
 func (m *mockService) GetGaugeMetric(name string) (float64, error) {
 	return m.getGaugeVal, m.getGaugeErr
 }
@@ -39,6 +43,200 @@ func (m *mockService) ListAllMetrics() (map[string]float64, map[string]int64) {
 		m.listCounters = map[string]int64{}
 	}
 	return m.listGauges, m.listCounters
+}
+
+func TestSaveMetricHandler_JSON(t *testing.T) {
+	tests := []struct {
+		name       string
+		reqBody    models.Metrics
+		mock       *mockService
+		wantStatus int
+	}{
+		{
+			name: "save gauge success",
+			reqBody: models.Metrics{
+				ID:    "cpu",
+				MType: "gauge",
+				Value: ptr(1.23),
+			},
+			mock:       &mockService{},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "save counter success",
+			reqBody: models.Metrics{
+				ID:    "hits",
+				MType: "counter",
+				Delta: ptr(int64(10)),
+			},
+			mock:       &mockService{},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "invalid metric type",
+			reqBody: models.Metrics{
+				ID:    "x",
+				MType: "unknown",
+			},
+			mock:       &mockService{},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "missing value for gauge",
+			reqBody: models.Metrics{
+				ID:    "cpu",
+				MType: "gauge",
+				// Value is nil
+			},
+			mock:       &mockService{},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "missing delta for counter",
+			reqBody: models.Metrics{
+				ID:    "hits",
+				MType: "counter",
+				// Delta is nil
+			},
+			mock:       &mockService{},
+			wantStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mh := NewMetricHandler(tt.mock, zap.NewNop().Sugar())
+			r := http.NewServeMux()
+			r.HandleFunc("POST /update", mh.SaveMetricHandlerJSON)
+
+			body, _ := json.Marshal(tt.reqBody)
+			req := httptest.NewRequest("POST", "/update", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+
+			r.ServeHTTP(rec, req)
+
+			assert.Equal(t, tt.wantStatus, rec.Code)
+		})
+	}
+}
+
+func TestValueMetricHandler_JSON(t *testing.T) {
+	tests := []struct {
+		name       string
+		reqBody    models.Metrics
+		mock       *mockService
+		wantStatus int
+		wantValue  interface{} // float64 or int64
+	}{
+		{
+			name: "get gauge success",
+			reqBody: models.Metrics{
+				ID:    "temp",
+				MType: "gauge",
+			},
+			mock: &mockService{
+				getGaugeVal: 3.5,
+			},
+			wantStatus: http.StatusOK,
+			wantValue:  3.5,
+		},
+		{
+			name: "get counter success",
+			reqBody: models.Metrics{
+				ID:    "hits",
+				MType: "counter",
+			},
+			mock: &mockService{
+				getCountVal: 42,
+			},
+			wantStatus: http.StatusOK,
+			wantValue:  int64(42),
+		},
+		{
+			name: "metric not found",
+			reqBody: models.Metrics{
+				ID:    "missing",
+				MType: "gauge",
+			},
+			mock: &mockService{
+				getGaugeErr: assert.AnError,
+			},
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name: "invalid type",
+			reqBody: models.Metrics{
+				ID:    "x",
+				MType: "unknown",
+			},
+			mock:       &mockService{},
+			wantStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mh := NewMetricHandler(tt.mock, zap.NewNop().Sugar())
+			r := http.NewServeMux()
+			r.HandleFunc("POST /value", mh.ValueMetricHandlerJSON)
+
+			body, _ := json.Marshal(tt.reqBody)
+			req := httptest.NewRequest("POST", "/value", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+
+			r.ServeHTTP(rec, req)
+
+			assert.Equal(t, tt.wantStatus, rec.Code)
+
+			if tt.wantStatus == http.StatusOK {
+				var resp models.Metrics
+				_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+				if v := resp.Value; v != nil {
+					assert.Equal(t, tt.wantValue, *v)
+				}
+				if v := resp.Delta; v != nil {
+					assert.Equal(t, tt.wantValue, *v)
+				}
+			}
+		})
+	}
+}
+
+// Вспомогательная функция для создания указателя
+func ptr[T any](v T) *T { return &v }
+
+func TestCollectMetricsHandler(t *testing.T) {
+	mock := &mockService{
+		listGauges: map[string]float64{
+			"temp": 22.5,
+		},
+		listCounters: map[string]int64{
+			"hits": 7,
+		},
+	}
+	mh := NewMetricHandler(mock, zap.NewNop().Sugar())
+	r := chi.NewRouter()
+	r.Get("/", mh.CollectMetricsHandler)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	res := rec.Result()
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
+	}
+	if ct := res.Header.Get("Content-Type"); ct != "text/html; charset=utf-8" {
+		t.Fatalf("content-type = %q, want %q", ct, "text/html; charset=utf-8")
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Metrics") || !strings.Contains(body, "temp") || !strings.Contains(body, "hits") {
+		t.Fatalf("unexpected html body: %q", body)
+	}
 }
 
 func TestSaveMetricHandler(t *testing.T) {
@@ -190,37 +388,5 @@ func TestGetMetricHandler(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func TestCollectMetricsHandler(t *testing.T) {
-	mock := &mockService{
-		listGauges: map[string]float64{
-			"temp": 22.5,
-		},
-		listCounters: map[string]int64{
-			"hits": 7,
-		},
-	}
-	mh := NewMetricHandler(mock, zap.NewNop().Sugar())
-	r := chi.NewRouter()
-	r.Get("/", mh.CollectMetricsHandler)
-
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, req)
-
-	res := rec.Result()
-	defer func() { _ = res.Body.Close() }()
-
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
-	}
-	if ct := res.Header.Get("Content-Type"); ct != "text/html; charset=utf-8" {
-		t.Fatalf("content-type = %q, want %q", ct, "text/html; charset=utf-8")
-	}
-	body := rec.Body.String()
-	if !strings.Contains(body, "Metrics") || !strings.Contains(body, "temp") || !strings.Contains(body, "hits") {
-		t.Fatalf("unexpected html body: %q", body)
 	}
 }

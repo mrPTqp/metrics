@@ -1,14 +1,17 @@
 package agent
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"math/rand/v2"
 	"net/http"
 	"runtime"
 	"strconv"
 	"time"
+
+	"github.com/mrPTqp/metrics/internal/models"
 )
 
 type MetricsAgent struct {
@@ -25,7 +28,7 @@ func (mh *MetricsAgent) StartMetricsAgent(address string, reportInterval, poolIn
 	log.Printf("agent will send requests to %s", address)
 
 	var metrics map[string]float64
-	var poolCounter = 0
+	var poolCounter int64 = 0
 	var lastReportTime = time.Now()
 	for {
 		metrics = collectMetrics()
@@ -48,26 +51,38 @@ func (mh *MetricsAgent) StartMetricsAgent(address string, reportInterval, poolIn
 	}
 }
 
-func sendMetrics(metrics map[string]float64, client *http.Client, poolCounter int, address string) error {
+func sendMetrics(metrics map[string]float64, client *http.Client, poolCounter int64, address string) error {
 	for mName, mValue := range metrics {
-		path := fmt.Sprintf("/update/%s/%s/%f", "gauge", mName, mValue)
-
-		err := sendMetric(*client, "http://"+address+path)
+		req := models.Metrics{
+			ID:    mName,
+			MType: "gauge",
+			Value: &mValue,
+		}
+		err := sendMetric(*client, "http://"+address+"/update", req)
 		if err != nil {
 			return err
 		}
 	}
 
-	path := fmt.Sprintf("/update/%s/%s/%d", "counter", "PollCount", poolCounter)
-	err := sendMetric(*client, "http://"+address+path)
+	req := models.Metrics{
+		ID:    "PollCount",
+		MType: "counter",
+		Delta: &poolCounter,
+	}
+	err := sendMetric(*client, "http://"+address+"/update", req)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func sendMetric(client http.Client, url string) error {
-	resp, err := client.Post(url, "text/plain", nil)
+func sendMetric(client http.Client, url string, req models.Metrics) error {
+	jsonBody, err := json.Marshal(req)
+    if err != nil {
+        return err
+    }
+
+	resp, err := client.Post(url, "application/json", bytes.NewReader(jsonBody))
 	if err != nil {
 		return err
 	}
@@ -108,5 +123,8 @@ func collectMetrics() map[string]float64 {
 	metrics["StackSys"] = float64(memStats.StackSys)
 	metrics["Sys"] = float64(memStats.Sys)
 	metrics["TotalAlloc"] = float64(memStats.TotalAlloc)
+	metrics["Alloc"] = float64(memStats.Alloc)
+	metrics["BuckHashSys"] = float64(memStats.BuckHashSys)
+	metrics["Frees"] = float64(memStats.Frees)
 	return metrics
 }

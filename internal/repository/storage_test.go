@@ -9,8 +9,10 @@ import (
 
 func TestMemStorage_ListMethods(t *testing.T) {
 	s := NewMemStorage(zap.NewNop().Sugar())
-	_ = s.AddGauge("cpu", 2.5)
-	_ = s.AddCounter("hits", 3)
+	cpu := 2.5
+	hits := int64(3)
+	s.AddGauge("cpu", &cpu)
+	s.AddCounter("hits", &hits)
 
 	gauges := s.ListGauges()
 	counters := s.ListCounters()
