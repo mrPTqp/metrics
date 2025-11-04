@@ -20,7 +20,7 @@ type MetricsAgent struct {
 
 func NewMetricsAgent(client *http.Client) *MetricsAgent {
 	return &MetricsAgent{
-		client: &http.Client{},
+		client: client,
 	}
 }
 
@@ -78,11 +78,23 @@ func sendMetrics(metrics map[string]float64, client *http.Client, poolCounter in
 
 func sendMetric(client http.Client, url string, req models.Metrics) error {
 	jsonBody, err := json.Marshal(req)
-    if err != nil {
-        return err
-    }
+	if err != nil {
+		return err
+	}
 
-	resp, err := client.Post(url, "application/json", bytes.NewReader(jsonBody))
+	compressedBody, err := Compress(jsonBody)
+	if err != nil {
+		return err
+	}
+
+	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(compressedBody))
+	if err != nil {
+		return err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Content-Encoding", "gzip")
+
+	resp, err := client.Do(httpReq)
 	if err != nil {
 		return err
 	}
@@ -93,6 +105,7 @@ func sendMetric(client http.Client, url string, req models.Metrics) error {
 	}
 	return nil
 }
+
 
 func collectMetrics() map[string]float64 {
 	var memStats runtime.MemStats

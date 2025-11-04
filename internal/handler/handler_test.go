@@ -86,7 +86,6 @@ func TestSaveMetricHandler_JSON(t *testing.T) {
 			reqBody: models.Metrics{
 				ID:    "cpu",
 				MType: "gauge",
-				// Value is nil
 			},
 			mock:       &mockService{},
 			wantStatus: http.StatusBadRequest,
@@ -96,7 +95,6 @@ func TestSaveMetricHandler_JSON(t *testing.T) {
 			reqBody: models.Metrics{
 				ID:    "hits",
 				MType: "counter",
-				// Delta is nil
 			},
 			mock:       &mockService{},
 			wantStatus: http.StatusBadRequest,
@@ -204,7 +202,6 @@ func TestValueMetricHandler_JSON(t *testing.T) {
 	}
 }
 
-// Вспомогательная функция для создания указателя
 func ptr[T any](v T) *T { return &v }
 
 func TestCollectMetricsHandler(t *testing.T) {
@@ -230,8 +227,8 @@ func TestCollectMetricsHandler(t *testing.T) {
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
 	}
-	if ct := res.Header.Get("Content-Type"); ct != "text/html; charset=utf-8" {
-		t.Fatalf("content-type = %q, want %q", ct, "text/html; charset=utf-8")
+	if ct := res.Header.Get("Content-Type"); ct != "text/html" {
+		t.Fatalf("content-type = %q, want %q", ct, "text/html")
 	}
 	body := rec.Body.String()
 	if !strings.Contains(body, "Metrics") || !strings.Contains(body, "temp") || !strings.Contains(body, "hits") {

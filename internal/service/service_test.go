@@ -9,7 +9,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// MockMetricRepository - mock implementation of MetricRepository
 type MockMetricRepository struct {
 	mock.Mock
 }
@@ -75,7 +74,7 @@ func TestSaveGaugeMetric(t *testing.T) {
 			mockRepo.On("AddGauge", tt.mName, &expectedValue).Return(tt.repoError)
 
 			service := NewMetricsService(mockRepo, zap.NewNop().Sugar())
-			err := service.SaveGaugeMetric(tt.mName, &tt.mValue) // передаём указатель
+			err := service.SaveGaugeMetric(tt.mName, &tt.mValue)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -119,7 +118,7 @@ func TestSaveCounterMetric(t *testing.T) {
 			mockRepo.On("AddCounter", tt.mName, &expectedValue).Return(tt.repoError)
 
 			service := NewMetricsService(mockRepo, zap.NewNop().Sugar())
-			err := service.SaveCounterMetric(tt.mName, &tt.mValue) // передаём указатель
+			err := service.SaveCounterMetric(tt.mName, &tt.mValue)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -139,7 +138,7 @@ func TestListAllMetrics(t *testing.T) {
 
 	_ = metricService.SaveGaugeMetric("test_gauge", ptr(3.14))
 	_ = metricService.SaveCounterMetric("test_counter", ptr(int64(3)))
-	_ = metricService.SaveCounterMetric("test_counter", ptr(int64(4))) // adds to existing
+	_ = metricService.SaveCounterMetric("test_counter", ptr(int64(4)))
 
 	gauges, counters := metricService.ListAllMetrics()
 

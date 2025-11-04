@@ -1,11 +1,11 @@
 package main
 
 import (
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/mrPTqp/metrics/internal/agent"
+	"go.uber.org/zap"
 )
 
 type NetAddress struct {
@@ -21,11 +21,23 @@ func main() {
 	parseFlags()
 	parseEnvs()
 
+	var sugar *zap.SugaredLogger
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	defer logger.Sync()
+
+	sugar = logger.Sugar()
+
 	client := &http.Client{
 		Timeout: time.Second * 30,
+		Transport: &http.Transport{
+			DisableCompression: false,
+		},
 	}
 
 	a := agent.NewMetricsAgent(client)
-	log.Printf("agent will start with params reportInterval: %d, poolInterval: %d", reportInterval, poolInterval)
+	sugar.Infof("agent will start with params reportInterval: %d, poolInterval: %d", reportInterval, poolInterval)
 	a.StartMetricsAgent(address.String(), reportInterval, poolInterval)
 }

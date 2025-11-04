@@ -8,50 +8,50 @@ import (
 )
 
 type (
-    responseData struct {
-        status int
-        size int
-    }
+	responseData struct {
+		status int
+		size   int
+	}
 
-    loggingResponseWriter struct {
-        http.ResponseWriter
-        responseData *responseData
-    }
+	loggingResponseWriter struct {
+		http.ResponseWriter
+		responseData *responseData
+	}
 )
 
 func (r *loggingResponseWriter) Write(b []byte) (int, error) {
-    size, err := r.ResponseWriter.Write(b) 
-    r.responseData.size += size
-    return size, err
+	size, err := r.ResponseWriter.Write(b)
+	r.responseData.size += size
+	return size, err
 }
 
 func (r *loggingResponseWriter) WriteHeader(statusCode int) {
-    r.ResponseWriter.WriteHeader(statusCode) 
-    r.responseData.status = statusCode 
-} 
+	r.ResponseWriter.WriteHeader(statusCode)
+	r.responseData.status = statusCode
+}
 
-func WithLogging(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
-        start := time.Now()
+func LoggingMiddleware(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
 
-        responseData := &responseData {
-            status: 0,
-            size: 0,
-        }
-        lw := loggingResponseWriter {
-            ResponseWriter: w, 
-            responseData: responseData,
-        }
-        h.ServeHTTP(&lw, r)
+		responseData := &responseData{
+			status: 0,
+			size:   0,
+		}
+		lw := loggingResponseWriter{
+			ResponseWriter: w,
+			responseData:   responseData,
+		}
+		h.ServeHTTP(&lw, r)
 
-        duration := time.Since(start)
+		duration := time.Since(start)
 
-        sugar.Infoln(
-            "uri", r.RequestURI,
-            "method", r.Method,
-            "duration", duration,
-            "status", responseData.status,
-            "size", responseData.size, 
-        )
-    }
-} 
+		sugar.Infoln(
+			"uri", r.RequestURI,
+			"method", r.Method,
+			"duration", duration,
+			"status", responseData.status,
+			"size", responseData.size,
+		)
+	}
+}

@@ -36,15 +36,39 @@ func main() {
 	ms := service.NewMetricsService(mr, sugar)
 	mh := handler.NewMetricHandler(ms, sugar)
 
+	mws := []func(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc{
+		middleware.LoggingMiddleware,
+		middleware.GzipMiddleware,
+	}
 	r := chi.NewRouter()
-	r.Get("/", middleware.WithLogging(mh.CollectMetricsHandler, sugar))
+	r.Get("/", wrap(
+		mh.CollectMetricsHandler,
+		sugar,
+		mws...,
+	))
 	r.Route("/update", func(r chi.Router) {
-		r.Post("/", middleware.WithLogging(mh.SaveMetricHandlerJSON, sugar))
-		r.Post("/{type}/{name}/{value}", middleware.WithLogging(mh.SaveMetricHandler, sugar))
+		r.Post("/", wrap(
+			mh.SaveMetricHandlerJSON,
+			sugar,
+			mws...,
+		))
+		r.Post("/{type}/{name}/{value}", wrap(
+			mh.SaveMetricHandler,
+			sugar,
+			mws...,
+		))
 	})
 	r.Route("/value", func(r chi.Router) {
-		r.Post("/", middleware.WithLogging(mh.ValueMetricHandlerJSON, sugar))
-		r.Get("/{type}/{name}", middleware.WithLogging(mh.GetMetricHandler, sugar))
+		r.Post("/", wrap(
+			mh.ValueMetricHandlerJSON,
+			sugar,
+			mws...,
+		))
+		r.Get("/{type}/{name}", wrap(
+			mh.GetMetricHandler,
+			sugar,
+			mws...,
+		))
 
 	})
 
@@ -54,4 +78,11 @@ func main() {
 	}
 	sugar.Info("Server running on %s", address.String())
 	sugar.Fatal(srv.ListenAndServe())
+}
+
+func wrap(h http.HandlerFunc, logger *zap.SugaredLogger, mwFuncs ...func(http.HandlerFunc, *zap.SugaredLogger) http.HandlerFunc) http.HandlerFunc {
+	for i := len(mwFuncs) - 1; i >= 0; i-- {
+		h = mwFuncs[i](h, logger)
+	}
+	return h
 }

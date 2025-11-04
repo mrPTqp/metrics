@@ -29,6 +29,7 @@ func (mh *MetricHandler) SaveMetricHandlerJSON(w http.ResponseWriter, r *http.Re
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Header.Get("Content-Type") != "application/json" {
+		mh.logger.Error("unexpected content type", zap.String("content-type", r.Header.Get("Content-Type")))
 		w.WriteHeader(http.StatusBadRequest)
 		resp := map[string]string{"error": "expected JSON"}
 		_ = json.NewEncoder(w).Encode(resp)
@@ -56,7 +57,7 @@ func (mh *MetricHandler) SaveMetricHandlerJSON(w http.ResponseWriter, r *http.Re
 		}
 		err := mh.service.SaveGaugeMetric(strings.ToLower(req.ID), req.Value)
 		if err != nil {
-			mh.logger.Error("Error processing gauge metric: %v", err)
+			mh.logger.Errorf("Error processing gauge metric: %s - %v", req.ID, req.Value, zap.Error(err))
 			w.WriteHeader(http.StatusBadRequest)
 			resp := map[string]string{"error": "processing gauge metric failed"}
 			_ = json.NewEncoder(w).Encode(resp)
@@ -85,7 +86,7 @@ func (mh *MetricHandler) SaveMetricHandlerJSON(w http.ResponseWriter, r *http.Re
 		}
 		err := mh.service.SaveCounterMetric(strings.ToLower(req.ID), req.Delta)
 		if err != nil {
-			mh.logger.Error("Error processing counter metric: %v", err)
+			mh.logger.Error("Error processing counter metric: %s - %v", req.ID, req.Delta, zap.Error(err))
 			w.WriteHeader(http.StatusBadRequest)
 			resp := map[string]string{"error": "processing counter metric failed"}
 			_ = json.NewEncoder(w).Encode(resp)
@@ -117,6 +118,7 @@ func (mh *MetricHandler) ValueMetricHandlerJSON(w http.ResponseWriter, r *http.R
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Header.Get("Content-Type") != "application/json" {
+		mh.logger.Error("unexpected content type", zap.String("content-type", r.Header.Get("Content-Type")))
 		w.WriteHeader(http.StatusBadRequest)
 		resp := map[string]string{"error": "expected JSON"}
 		_ = json.NewEncoder(w).Encode(resp)
@@ -137,7 +139,7 @@ func (mh *MetricHandler) ValueMetricHandlerJSON(w http.ResponseWriter, r *http.R
 	case "gauge":
 		mValue, err := mh.service.GetGaugeMetric(strings.ToLower(req.ID))
 		if err != nil {
-			mh.logger.Error("Error getting gauge metric: %v", err)
+			mh.logger.Error("Error getting gauge metric: %s", req.ID, zap.Error(err))
 			w.WriteHeader(http.StatusNotFound)
 			resp := map[string]string{"error": "gauge not found"}
 			_ = json.NewEncoder(w).Encode(resp)
@@ -148,6 +150,7 @@ func (mh *MetricHandler) ValueMetricHandlerJSON(w http.ResponseWriter, r *http.R
 			MType: "gauge",
 			Value: &mValue,
 		}
+		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(resp); err != nil {
 			mh.logger.Error("error encoding response", zap.Error(err))
 			w.WriteHeader(http.StatusInternalServerError)
@@ -160,7 +163,7 @@ func (mh *MetricHandler) ValueMetricHandlerJSON(w http.ResponseWriter, r *http.R
 	case "counter":
 		mValue, err := mh.service.GetCounterMetric(strings.ToLower(req.ID))
 		if err != nil {
-			mh.logger.Error("Error getting counter metric: %v", err)
+			mh.logger.Error("Error getting counter metric: %s", req.ID, zap.Error(err))
 			w.WriteHeader(http.StatusNotFound)
 			resp := map[string]string{"error": "counter not found"}
 			_ = json.NewEncoder(w).Encode(resp)
@@ -171,6 +174,7 @@ func (mh *MetricHandler) ValueMetricHandlerJSON(w http.ResponseWriter, r *http.R
 			MType: "counter",
 			Delta: &mValue,
 		}
+		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(resp); err != nil {
 			mh.logger.Error("error encoding response", zap.Error(err))
 			w.WriteHeader(http.StatusInternalServerError)
@@ -188,8 +192,8 @@ func (mh *MetricHandler) ValueMetricHandlerJSON(w http.ResponseWriter, r *http.R
 }
 
 func (mh *MetricHandler) CollectMetricsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
 	gauges, counters := mh.service.ListAllMetrics()
-
 	renderMetricsHTML(w, gauges, counters)
 }
 
@@ -199,12 +203,14 @@ func (mh *MetricHandler) SaveMetricHandler(w http.ResponseWriter, r *http.Reques
 	mValue := chi.URLParam(r, "value")
 
 	if !isValidMetricType(mType) {
+		mh.logger.Error("Invalid metric type: %s", mType)
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		http.Error(w, "Invalid metric type", http.StatusBadRequest)
 		return
 	}
 
 	if !isValidMetricName(mName) {
+		mh.logger.Error("Invalid metric name: %s", mName)
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		http.Error(w, "Invalid metric name", http.StatusBadRequest)
 		return
@@ -216,26 +222,26 @@ func (mh *MetricHandler) SaveMetricHandler(w http.ResponseWriter, r *http.Reques
 	case "gauge":
 		floatValue, err := strconv.ParseFloat(mValue, 64)
 		if err != nil {
-			mh.logger.Error("Error parsing gauge value: %v", err)
+			mh.logger.Error("Error parsing gauge value: %s - %v", mName, mValue, zap.Error(err))
 			http.Error(w, "Invalid gauge value", http.StatusBadRequest)
 			return
 		}
 		err = mh.service.SaveGaugeMetric(mName, &floatValue)
 		if err != nil {
-			mh.logger.Error("Error processing gauge metric: %v", err)
+			mh.logger.Error("Error processing gauge metric: %s - %v", mName, mValue, zap.Error(err))
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	case "counter":
 		intValue, err := strconv.ParseInt(mValue, 10, 64)
 		if err != nil {
-			mh.logger.Error("Error parsing counter value: %v", err)
+			mh.logger.Error("Error parsing counter value: %s - %v", mName, mValue, zap.Error(err))
 			http.Error(w, "Invalid counter value", http.StatusBadRequest)
 			return
 		}
 		err = mh.service.SaveCounterMetric(mName, &intValue)
 		if err != nil {
-			mh.logger.Error("Error processing counter metric: %v", err)
+			mh.logger.Error("Error processing counter metric: %s - %v", mName, mValue, zap.Error(err))
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -249,12 +255,14 @@ func (mh *MetricHandler) GetMetricHandler(w http.ResponseWriter, r *http.Request
 	mName := strings.ToLower(chi.URLParam(r, "name"))
 
 	if !isValidMetricType(mType) {
+		mh.logger.Error("Invalid metric type: %s", mType)
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		http.Error(w, "Invalid metric type", http.StatusBadRequest)
 		return
 	}
 
 	if !isValidMetricName(mName) {
+		mh.logger.Error("Invalid metric name: %s", mName)
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		http.Error(w, "Invalid metric name", http.StatusBadRequest)
 		return
@@ -266,7 +274,7 @@ func (mh *MetricHandler) GetMetricHandler(w http.ResponseWriter, r *http.Request
 	case "gauge":
 		mValue, err := mh.service.GetGaugeMetric(mName)
 		if err != nil {
-			mh.logger.Error("Error getting gauge metric: %v", err)
+			mh.logger.Error("Error getting gauge metric: %s", mName, zap.Error(err))
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
@@ -275,7 +283,7 @@ func (mh *MetricHandler) GetMetricHandler(w http.ResponseWriter, r *http.Request
 	case "counter":
 		mValue, err := mh.service.GetCounterMetric(mName)
 		if err != nil {
-			mh.logger.Error("Error getting counter metric: %v", err)
+			mh.logger.Error("Error getting counter metric: %s", mName, zap.Error(err))
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
