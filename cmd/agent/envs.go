@@ -1,41 +1,41 @@
 package main
 
 import (
-	"errors"
-	"log"
 	"os"
 	"strconv"
-	"strings"
 )
 
-func (na *NetAddress) SetEnvAddress(envAddr string) error {
-	parts := strings.Split(envAddr, ":")
-	if len(parts) == 2 {
-		na.Host = parts[0]
-		na.Port, _ = strconv.Atoi(parts[1])
-	} else {
-		return errors.New("wrong env address format")
-	}
-	return nil
+type Envs struct {
+	Address        string
+	ReportInterval int
+	PoolInterval   int
 }
 
-func parseEnvs() {
-	var envAddr string
-	if envAddr = os.Getenv("ADDRESS"); envAddr != "" {
-		address.SetEnvAddress(envAddr)
+func parseEnvs() *Envs {
+	var address string
+	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
+		address = envAddr
 	}
+	var reportInterval int
 	if envReportIntervalStr := os.Getenv("REPORT_INTERVAL"); envReportIntervalStr != "" {
 		envReportInterval, err := strconv.Atoi(envReportIntervalStr)
 		if err != nil {
-			log.Printf("[ERROR] wrong REPORT_INTERVAL value: %s", envReportIntervalStr)
+			panic("wrong REPORT_INTERVAL type value: " + envReportIntervalStr)
 		}
 		reportInterval = envReportInterval
 	}
+	var poolInterval int
 	if envPoolIntervalStr := os.Getenv("POLL_INTERVAL"); envPoolIntervalStr != "" {
 		envPoolInterval, err := strconv.Atoi(envPoolIntervalStr)
 		if err != nil {
-			log.Printf("[ERROR] wrong POLL_INTERVAL value: %s", envPoolIntervalStr)
+			panic("wrong POLL_INTERVAL type value: " + envPoolIntervalStr)
 		}
 		poolInterval = envPoolInterval
+	}
+
+	return &Envs{
+		Address:        address,
+		ReportInterval: reportInterval,
+		PoolInterval:   poolInterval,
 	}
 }

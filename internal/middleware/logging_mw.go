@@ -30,7 +30,7 @@ func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 	r.responseData.status = statusCode
 }
 
-func LoggingMiddleware(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc {
+func LoggingMiddleware(h http.HandlerFunc, logger *zap.SugaredLogger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
@@ -46,7 +46,7 @@ func LoggingMiddleware(h http.HandlerFunc, sugar *zap.SugaredLogger) http.Handle
 
 		duration := time.Since(start)
 
-		sugar.Infoln(
+		logger.Infoln(
 			"uri", r.RequestURI,
 			"method", r.Method,
 			"duration", duration,

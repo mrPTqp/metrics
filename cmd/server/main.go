@@ -12,25 +12,16 @@ import (
 	"github.com/mrPTqp/metrics/internal/service"
 )
 
-type NetAddress struct {
-	Host string
-	Port int
-}
-
-var address NetAddress = NetAddress{"localhost", 8080}
-
 func main() {
-	parseFlags()
-	parseEnvs()
-
 	var sugar *zap.SugaredLogger
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)
 	}
 	defer logger.Sync()
-
 	sugar = logger.Sugar()
+
+	config := LoadConfig()
 
 	mr := repository.NewMemStorage(sugar)
 	ms := service.NewMetricsService(mr, sugar)
@@ -73,10 +64,10 @@ func main() {
 	})
 
 	srv := &http.Server{
-		Addr:    address.String(),
+		Addr:    config.Address.String(),
 		Handler: r,
 	}
-	sugar.Info("Server running on %s", address.String())
+	sugar.Infof("Server running on %s", config.Address.String())
 	sugar.Fatal(srv.ListenAndServe())
 }
 

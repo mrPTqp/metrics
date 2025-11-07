@@ -1,30 +1,19 @@
 package main
 
 import (
-	"errors"
 	"flag"
-	"fmt"
-	"strconv"
-	"strings"
 )
 
-func (na *NetAddress) String() string {
-	return fmt.Sprint(na.Host + ":" + strconv.Itoa(na.Port))
+type Flags struct {
+	Address string
 }
 
-func (na *NetAddress) Set(flagValue string) error {
-	parts := strings.Split(flagValue, ":")
-	if len(parts) == 2 {
-		na.Host = parts[0]
-		na.Port, _ = strconv.Atoi(parts[1])
-	} else {
-		return errors.New("wrong flag a format")
-	}
-	return nil
-}
-
-func parseFlags() {
-	flag.Var(&address, "a", "address and port to run server")
+func parseFlags() *Flags {
+	addr := flag.String("a", "", "address and port to run server")
 
 	flag.Parse()
+
+	return &Flags{
+		Address: *addr,
+	}
 }
