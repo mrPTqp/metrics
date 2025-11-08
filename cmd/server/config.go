@@ -2,13 +2,15 @@ package main
 
 import (
 	"errors"
-	"log"
 	"strconv"
 	"strings"
 )
 
 type Config struct {
-	Address NetAddress
+	Address       NetAddress
+	StoreInterval int
+	Restore       bool
+	File          string
 }
 
 type NetAddress struct {
@@ -24,18 +26,39 @@ func LoadConfig() *Config {
 	address := "localhost:8080"
 	if envs.Address != "" {
 		address = envs.Address
-		log.Println("Using address from ENV:", address)
 	} else if flags.Address != "" {
 		address = flags.Address
-		log.Println("Using address from FLAG:", address)
 	}
-	log.Println("DEBUG: Final address before parsing:", address)
 	if err := na.setAddress(address); err != nil {
 		panic("invalid address: " + address + " error: " + err.Error())
 	}
 
+	storeInterval := 300
+	if envs.StoreInterval != 0 {
+		storeInterval = envs.StoreInterval
+	} else if flags.StoreInterval != 0 {
+		storeInterval = flags.StoreInterval
+	}
+
+	fileStoragePath := ""
+	if envs.FileStoragePath != "" {
+		fileStoragePath = envs.FileStoragePath
+	} else if flags.FileStoragePath != "" {
+		fileStoragePath = flags.FileStoragePath
+	}
+
+	var restore bool = false
+	if envs.Restore {
+		restore = envs.Restore
+	} else if flags.Restore {
+		restore = flags.Restore
+	}
+
 	return &Config{
-		Address: na,
+		Address:       na,
+		StoreInterval: storeInterval,
+		Restore:       restore,
+		File:          fileStoragePath + "events.log",
 	}
 }
 

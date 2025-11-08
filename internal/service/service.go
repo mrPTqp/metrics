@@ -14,13 +14,15 @@ type MetricsService interface {
 }
 
 type BaseMetricService struct {
-	mr repository.MetricRepository
-	logger *zap.SugaredLogger
+	mr         repository.MetricRepository
+	syncBackup bool
+	logger     *zap.SugaredLogger
 }
 
-func NewMetricsService(mr repository.MetricRepository, logger *zap.SugaredLogger) *BaseMetricService {
+func NewMetricsService(mr repository.MetricRepository, logger *zap.SugaredLogger, syncBackup bool) *BaseMetricService {
 	return &BaseMetricService{
-		mr: mr,
+		mr:     mr,
+		syncBackup: syncBackup,
 		logger: logger,
 	}
 }

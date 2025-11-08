@@ -2,13 +2,16 @@ package main
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"github.com/mrPTqp/metrics/internal/backup"
 	"github.com/mrPTqp/metrics/internal/handler"
 	"github.com/mrPTqp/metrics/internal/middleware"
 	"github.com/mrPTqp/metrics/internal/repository"
+	"github.com/mrPTqp/metrics/internal/scheduler"
 	"github.com/mrPTqp/metrics/internal/service"
 )
 
@@ -21,16 +24,31 @@ func main() {
 	defer logger.Sync()
 	sugar = logger.Sugar()
 
-	config := LoadConfig()
+	cfg := LoadConfig()
 
 	mr := repository.NewMemStorage(sugar)
-	ms := service.NewMetricsService(mr, sugar)
+	ms := service.NewMetricsService(mr, sugar, syncBackup)
 	mh := handler.NewMetricHandler(ms, sugar)
 
 	mws := []func(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc{
 		middleware.LoggingMiddleware,
 		middleware.GzipMiddleware,
 	}
+	startMetricsServer(mh, mws, cfg, sugar)
+
+	producer, err := backup.NewProducer(cfg.File)
+	if err != nil {
+		sugar.Fatal(err)
+	}
+	defer producer.Close()
+
+	b := backup.NewFileBackuper(ms, producer, sugar)
+	sc := scheduler.NewScheduler(b, sugar)
+	sc.Start(cfg.StoreInterval, cfg.File)
+	defer os.Remove(cfg.File)
+}
+
+func startMetricsServer(mh *handler.MetricHandler, mws []func(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc, config *Config, sugar *zap.SugaredLogger) {
 	r := chi.NewRouter()
 	r.Get("/", wrap(
 		mh.CollectMetricsHandler,
