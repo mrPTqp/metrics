@@ -5,19 +5,11 @@ import (
 	"time"
 
 	"github.com/mrPTqp/metrics/internal/agent"
-	"go.uber.org/zap"
+	"github.com/mrPTqp/metrics/internal/logger"
 )
 
-
-
 func main() {
-	var sugar *zap.SugaredLogger
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		panic(err)
-	}
-	defer logger.Sync()
-	sugar = logger.Sugar()
+	sugar := logger.NewSugarLogger()
 
 	config := LoadConfig()
 

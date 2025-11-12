@@ -1,38 +1,32 @@
 package main
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
+
+	"github.com/mrPTqp/metrics/internal/models"
 )
 
 type Config struct {
-	Address          NetAddress
+	Address          models.NetAddress
 	StoreInterval    int
 	Restore          bool
 	File             string
 	SyncBackupToFile bool
 }
 
-type NetAddress struct {
-	Host string
-	Port int
-}
-
 func LoadConfig() *Config {
 	flags := parseFlags()
 	envs := parseEnvs()
 
-	na := NetAddress{}
+	na := models.NetAddress{}
 	address := "localhost:8080"
 	if envs.Address != "" {
 		address = envs.Address
 	} else if flags.Address != "" {
 		address = flags.Address
 	}
-	if err := na.setAddress(address); err != nil {
+	if err := na.SetAddress(address); err != nil {
 		panic("invalid address: " + address + " error: " + err.Error())
 	}
 
@@ -69,22 +63,4 @@ func LoadConfig() *Config {
 		File:          filepath.FromSlash(fileStoragePath + "events.log"),
 		SyncBackupToFile: syncBackupToFile,
 	}
-}
-
-func (na *NetAddress) setAddress(address string) error {
-	parts := strings.Split(address, ":")
-	if len(parts) != 2 {
-		return errors.New("wrong address format, expected host:port")
-	}
-	na.Host = parts[0]
-	port, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return errors.New("invalid port number: " + parts[1])
-	}
-	na.Port = port
-	return nil
-}
-
-func (na *NetAddress) String() string {
-	return na.Host + ":" + strconv.Itoa(na.Port)
 }

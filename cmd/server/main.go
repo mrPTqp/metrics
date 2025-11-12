@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/mrPTqp/metrics/internal/handler"
+	"github.com/mrPTqp/metrics/internal/logger"
 	"github.com/mrPTqp/metrics/internal/middleware"
 	"github.com/mrPTqp/metrics/internal/scheduler"
 	"github.com/mrPTqp/metrics/internal/service"
@@ -22,13 +23,7 @@ import (
 )
 
 func main() {
-	var sugar *zap.SugaredLogger
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		panic(err)
-	}
-	defer logger.Sync()
-	sugar = logger.Sugar()
+	sugar := logger.NewSugarLogger()
 
 	cfg := LoadConfig()
 	sugar.Infow("Configuration loaded", "config", cfg)
