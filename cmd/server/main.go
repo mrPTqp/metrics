@@ -1,3 +1,4 @@
+// cmd/server/main.go
 package main
 
 import (
@@ -29,32 +30,42 @@ func main() {
 	sugar.Infow("Configuration loaded", "config", cfg)
 
 	msr := storage.NewMemStorage(sugar)
+
 	p := storage.NewFileProducer(cfg.File, sugar)
 	c := storage.NewFileConsumer(cfg.File, sugar)
 	fsr := storage.NewFileStorage(p, c, cfg.SyncBackupToFile, sugar)
-	ms := service.NewMetricsService(msr, fsr, sugar)
-	mh := handler.NewMetricHandler(ms, sugar)
+
+	baseService := service.NewMetricsService(msr, sugar)
+
+	var metricsService service.MetricsService = baseService
+
+	if !cfg.SyncBackupToFile {
+		metricsService = service.NewFileBackupService(baseService, fsr, sugar)
+	}
+
+	mh := handler.NewMetricHandler(metricsService, sugar)
 
 	if cfg.Restore {
-		restore(fsr, sugar, ms)
+		restore(fsr, sugar, baseService)
 	}
 
 	mws := []func(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc{
 		middleware.LoggingMiddleware,
 		middleware.GzipMiddleware,
 	}
+
 	srv := startMetricsServer(mh, mws, cfg, sugar)
 
 	var sc *scheduler.FileBackupScheduler
 	if !cfg.SyncBackupToFile {
-		sc = scheduler.NewScheduler(ms, sugar)
+		sc = scheduler.NewScheduler(baseService, sugar)
 		go sc.Start(cfg.StoreInterval, cfg.File)
 	}
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-
 	<-stop
+
 	sugar.Info("Shutting down server gracefully...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -63,7 +74,7 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		sugar.Errorf("Server forced to shutdown: %v", err)
 	} else {
-		sugar.Info("Server stopped")
+		sugar.Info("Server stopped gracefully")
 	}
 
 	if sc != nil {
@@ -96,35 +107,14 @@ func restore(fsr *storage.FileStorage, sugar *zap.SugaredLogger, ms *service.Bas
 
 func startMetricsServer(mh *handler.MetricHandler, mws []func(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc, cfg *Config, sugar *zap.SugaredLogger) *http.Server {
 	r := chi.NewRouter()
-	r.Get("/", wrap(
-		mh.CollectMetricsHandler,
-		sugar,
-		mws...,
-	))
+	r.Get("/", wrap(mh.CollectMetricsHandler, sugar, mws...))
 	r.Route("/update", func(r chi.Router) {
-		r.Post("/", wrap(
-			mh.SaveMetricHandlerJSON,
-			sugar,
-			mws...,
-		))
-		r.Post("/{type}/{name}/{value}", wrap(
-			mh.SaveMetricHandler,
-			sugar,
-			mws...,
-		))
+		r.Post("/", wrap(mh.SaveMetricHandlerJSON, sugar, mws...))
+		r.Post("/{type}/{name}/{value}", wrap(mh.SaveMetricHandler, sugar, mws...))
 	})
 	r.Route("/value", func(r chi.Router) {
-		r.Post("/", wrap(
-			mh.ValueMetricHandlerJSON,
-			sugar,
-			mws...,
-		))
-		r.Get("/{type}/{name}", wrap(
-			mh.GetMetricHandler,
-			sugar,
-			mws...,
-		))
-
+		r.Post("/", wrap(mh.ValueMetricHandlerJSON, sugar, mws...))
+		r.Get("/{type}/{name}", wrap(mh.GetMetricHandler, sugar, mws...))
 	})
 
 	srv := &http.Server{
