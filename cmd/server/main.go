@@ -29,7 +29,9 @@ func main() {
 	sugar.Infow("Configuration loaded", "config", cfg)
 
 	msr := storage.NewMemStorage(sugar)
-	fsr := storage.NewFileStorage(cfg.File, cfg.SyncBackupToFile, sugar)
+	p := storage.NewFileProducer(cfg.File, sugar)
+	c := storage.NewFileConsumer(cfg.File, sugar)
+	fsr := storage.NewFileStorage(p, c, cfg.SyncBackupToFile, sugar)
 	ms := service.NewMetricsService(msr, fsr, sugar)
 	mh := handler.NewMetricHandler(ms, sugar)
 
