@@ -9,11 +9,11 @@ import (
 )
 
 type FileBackupScheduler struct {
-	service *service.BaseMetricService
+	service service.MetricsService
 	logger  *zap.SugaredLogger
 }
 
-func NewScheduler(service *service.BaseMetricService, logger *zap.SugaredLogger) *FileBackupScheduler {
+func NewScheduler(service service.MetricsService, logger *zap.SugaredLogger) *FileBackupScheduler {
 	return &FileBackupScheduler{
 		service: service,
 		logger:  logger,

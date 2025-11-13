@@ -39,8 +39,11 @@ func main() {
 
 	var metricsService service.MetricsService = baseService
 
+	var sc *scheduler.FileBackupScheduler
 	if !cfg.SyncBackupToFile {
 		metricsService = service.NewFileBackupService(baseService, fsr, sugar)
+		sc = scheduler.NewScheduler(metricsService, sugar)
+		go sc.Start(cfg.StoreInterval, cfg.File)
 	}
 
 	mh := handler.NewMetricHandler(metricsService, sugar)
@@ -55,12 +58,6 @@ func main() {
 	}
 
 	srv := startMetricsServer(mh, mws, cfg, sugar)
-
-	var sc *scheduler.FileBackupScheduler
-	if !cfg.SyncBackupToFile {
-		sc = scheduler.NewScheduler(baseService, sugar)
-		go sc.Start(cfg.StoreInterval, cfg.File)
-	}
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
