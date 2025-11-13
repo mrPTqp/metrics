@@ -21,20 +21,20 @@ func LoadConfig() *Config {
 
 	na := models.NetAddress{}
 	address := "localhost:8080"
-	if envs.Address != "" {
-		address = envs.Address
-	} else if flags.Address != "" {
-		address = flags.Address
+	if envs.Address != nil && *envs.Address != "" {
+		address = *envs.Address
+	} else if flags.Address != nil && *flags.Address != "" {
+		address = *flags.Address
 	}
 	if err := na.SetAddress(address); err != nil {
 		panic("invalid address: " + address + " error: " + err.Error())
 	}
 
 	storeInterval := 300
-	if envs.StoreInterval != 0 {
-		storeInterval = envs.StoreInterval
-	} else if flags.StoreInterval != 0 {
-		storeInterval = flags.StoreInterval
+	if envs.StoreInterval != nil && *envs.StoreInterval != 0 {
+		storeInterval = *envs.StoreInterval
+	} else if flags.StoreInterval != nil {
+		storeInterval = *flags.StoreInterval
 	}
 
 	var syncBackupToFile = false
@@ -43,24 +43,24 @@ func LoadConfig() *Config {
 	}
 
 	fileStoragePath := os.TempDir() + "/"
-	if envs.FileStoragePath != "" {
-		fileStoragePath = envs.FileStoragePath
-	} else if flags.FileStoragePath != "" {
-		fileStoragePath = flags.FileStoragePath
+	if envs.FileStoragePath != nil && *envs.FileStoragePath != "" {
+		fileStoragePath = *envs.FileStoragePath
+	} else if flags.FileStoragePath != nil && *flags.FileStoragePath != "" {
+		fileStoragePath = *flags.FileStoragePath
 	}
 
 	var restore = false
-	if envs.Restore {
-		restore = envs.Restore
-	} else if flags.Restore {
-		restore = flags.Restore
+	if envs.Restore != nil && *envs.Restore {
+		restore = *envs.Restore
+	} else if flags.Restore != nil && *flags.Restore {
+		restore = *flags.Restore
 	}
 
 	return &Config{
-		Address:       na,
-		StoreInterval: storeInterval,
-		Restore:       restore,
-		File:          filepath.FromSlash(fileStoragePath + "events.log"),
+		Address:          na,
+		StoreInterval:    storeInterval,
+		Restore:          restore,
+		File:             filepath.FromSlash(fileStoragePath + "events.log"),
 		SyncBackupToFile: syncBackupToFile,
 	}
 }

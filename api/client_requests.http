@@ -13,10 +13,8 @@ Content-Type: application/json
 POST http://localhost:8080/value HTTP/1.1
 Host: localhost:8080
 Content-Type: application/json
-Content-Encoding: gzip
-Accept-Encoding: gzip
 
 {
-  "id": "PollCount",
-  "type": "counter"
+  "id": "numgc",
+  "type": "gauge"
 } 

@@ -6,18 +6,22 @@ import (
 )
 
 type Envs struct {
-	Address         string
-	StoreInterval   int
-	FileStoragePath string
-	Restore         bool
+	Address         *string
+	StoreInterval   *int
+	FileStoragePath *string
+	Restore         *bool
 }
 
 func parseEnvs() *Envs {
 	var address string
+	var storeInterval int
+	var fileStoragePath string
+	var restore bool
+
 	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
 		address = envAddr
 	}
-	var storeInterval int
+
 	if envStoreIntervalStr := os.Getenv("STORE_INTERVAL"); envStoreIntervalStr != "" {
 		if envStoreInterval, err := strconv.Atoi(envStoreIntervalStr); err != nil {
 			panic("wrong STORE_INTERVAL type value: " + envStoreIntervalStr)
@@ -25,11 +29,11 @@ func parseEnvs() *Envs {
 			storeInterval = envStoreInterval
 		}
 	}
-	var fileStoragePath string
+
 	if envfileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envfileStoragePath != "" {
 		fileStoragePath = envfileStoragePath
 	}
-	var restore bool
+
 	if envRestoreStr := os.Getenv("RESTORE"); envRestoreStr != "" {
 		if envRestore, err := strconv.ParseBool(envRestoreStr); err != nil {
 			panic("wrong RESTORE type value: " + envRestoreStr)
@@ -38,9 +42,9 @@ func parseEnvs() *Envs {
 		}
 	}
 	return &Envs{
-		Address:         address,
-		StoreInterval:   storeInterval,
-		FileStoragePath: fileStoragePath,
-		Restore:         restore,
+		Address:         &address,
+		StoreInterval:   &storeInterval,
+		FileStoragePath: &fileStoragePath,
+		Restore:         &restore,
 	}
 }

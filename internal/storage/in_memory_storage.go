@@ -26,7 +26,6 @@ func (s *MemStorage) SaveGauge(key string, value *float64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.gauges[key] = *value
-	s.logState()
 	return nil
 }
 
@@ -34,7 +33,6 @@ func (s *MemStorage) SaveCounter(key string, value *int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.counters[key] += *value
-	s.logState()
 	return nil
 }
 
@@ -85,6 +83,7 @@ func (s *MemStorage) SaveAllMetrics(gauges map[string]float64, counters map[stri
 	for k, v := range counters {
 		s.SaveCounter(k, &v)
 	}
+	s.logState()
 	return nil
 }
 
