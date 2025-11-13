@@ -1,11 +1,7 @@
-// cmd/server/main.go
 package main
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"github.com/mrPTqp/metrics/internal/backup"
 	"github.com/mrPTqp/metrics/internal/handler"
 	"github.com/mrPTqp/metrics/internal/logger"
 	"github.com/mrPTqp/metrics/internal/middleware"
@@ -31,32 +28,35 @@ func main() {
 
 	msr := storage.NewMemStorage(sugar)
 
+	var ms service.MetricsService
+	baseService := service.NewMetricsService(msr, sugar)
+	ms = baseService
+
 	p := storage.NewFileProducer(cfg.File, sugar)
 	c := storage.NewFileConsumer(cfg.File, sugar)
 	fsr := storage.NewFileStorage(p, c, cfg.SyncBackupToFile, sugar)
 
-	baseService := service.NewMetricsService(msr, sugar)
-
-	var metricsService service.MetricsService = baseService
-
+	var b *backup.Backuper
 	var sc *scheduler.FileBackupScheduler
-	if !cfg.SyncBackupToFile {
-		metricsService = service.NewFileBackupService(baseService, fsr, sugar)
-		sc = scheduler.NewScheduler(metricsService, sugar)
+	if cfg.SyncBackupToFile {
+		ms = service.NewFileBackupService(baseService, fsr, sugar)
+	} else {
+		b = backup.NewBackuper(ms, fsr, sugar)
+		sc = scheduler.NewScheduler(b, sugar)
 		go sc.Start(cfg.StoreInterval, cfg.File)
 	}
 
-	mh := handler.NewMetricHandler(metricsService, sugar)
-
+	var r *backup.Restorer
 	if cfg.Restore {
-		restore(fsr, sugar, baseService)
+		r = backup.NewRestorer(ms, fsr, sugar)
+		r.Restore()
 	}
 
+	mh := handler.NewMetricHandler(ms, sugar)
 	mws := []func(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc{
 		middleware.LoggingMiddleware,
 		middleware.GzipMiddleware,
 	}
-
 	srv := startMetricsServer(mh, mws, cfg, sugar)
 
 	stop := make(chan os.Signal, 1)
@@ -74,32 +74,10 @@ func main() {
 		sugar.Info("Server stopped gracefully")
 	}
 
-	if sc != nil {
+	if b != nil {
 		sugar.Info("Saving metrics to file before shutdown...")
-		sc.Backup()
+		b.Backup()
 	}
-}
-
-func restore(fsr *storage.FileStorage, sugar *zap.SugaredLogger, ms *service.BaseMetricService) {
-	gauges, counters, err := fsr.Restore()
-	if err != nil {
-		var syntaxError *json.SyntaxError
-		if errors.Is(err, io.EOF) {
-			sugar.Info("Snapshot file is empty, starting fresh")
-			return
-		}
-		if errors.As(err, &syntaxError) {
-			sugar.Warn("Snapshot file is corrupted, starting fresh", zap.Error(err))
-			return
-		}
-		sugar.Fatalf("Failed to restore data: %v", err)
-	}
-
-	if err := ms.SaveAllMetrics(gauges, counters); err != nil {
-		sugar.Errorf("Failed to load metrics into memory: %v", err)
-	}
-
-	sugar.Infof("Restore completed. Loaded %d gauges, %d counters", len(gauges), len(counters))
 }
 
 func startMetricsServer(mh *handler.MetricHandler, mws []func(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc, cfg *Config, sugar *zap.SugaredLogger) *http.Server {

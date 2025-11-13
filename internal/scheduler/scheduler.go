@@ -3,19 +3,19 @@ package scheduler
 import (
 	"time"
 
-	"github.com/mrPTqp/metrics/internal/service"
+	"github.com/mrPTqp/metrics/internal/backup"
 
 	"go.uber.org/zap"
 )
 
 type FileBackupScheduler struct {
-	service service.MetricsService
+	backuper *backup.Backuper
 	logger  *zap.SugaredLogger
 }
 
-func NewScheduler(service service.MetricsService, logger *zap.SugaredLogger) *FileBackupScheduler {
+func NewScheduler(backuper *backup.Backuper, logger *zap.SugaredLogger) *FileBackupScheduler {
 	return &FileBackupScheduler{
-		service: service,
+		backuper: backuper,
 		logger:  logger,
 	}
 }
@@ -25,17 +25,6 @@ func (fbs *FileBackupScheduler) Start(storeInterval int, fileStoragePath string)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		fbs.Backup()
-	}
-}
-
-func (fbs *FileBackupScheduler) Backup() {
-	gauges, counters := fbs.service.ListAllMetrics()
-
-	err := fbs.service.SaveAllMetrics(gauges, counters)
-	if err != nil {
-		fbs.logger.Errorf("Failed to save metrics: %v", err)
-	} else {
-		fbs.logger.Info("Metrics saved successfully")
+		fbs.backuper.Backup()
 	}
 }
