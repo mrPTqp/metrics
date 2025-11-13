@@ -32,7 +32,7 @@ func (fbs *FileBackupScheduler) Start(storeInterval int, fileStoragePath string)
 func (fbs *FileBackupScheduler) Backup() {
 	gauges, counters := fbs.service.ListAllMetrics()
 
-	err := fbs.service.SaveAllMetricsToFile(gauges, counters)
+	err := fbs.service.SaveAllMetrics(gauges, counters)
 	if err != nil {
 		fbs.logger.Errorf("Failed to save metrics: %v", err)
 	} else {
