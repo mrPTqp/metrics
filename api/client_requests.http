@@ -1,0 +1,20 @@
+GET http://localhost:8080/ HTTP/1.1
+
+POST http://localhost:8080/update HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+
+{
+  "id": "Alloc",
+  "type": "gauge",
+  "value": 1744184459
+}
+
+POST http://localhost:8080/value HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+
+{
+  "id": "lastgc",
+  "type": "gauge"
+} 

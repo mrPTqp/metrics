@@ -1,37 +1,33 @@
 package main
 
 import (
-	"errors"
 	"flag"
-	"fmt"
-	"strconv"
-	"strings"
 )
 
-type NetAddress struct {
-	Host string
-	Port int
+type Flags struct {
+	Address *string
+	StoreInterval *int
+	FileStoragePath *string
+	Restore *bool
 }
 
-func (na *NetAddress) String() string {
-	return fmt.Sprint(na.Host + ":" + strconv.Itoa(na.Port))
-}
+func parseFlags() *Flags {
+	var addr string
+	var storeInterval int
+	var fileStoragePath string
+	var restore bool
 
-func (na *NetAddress) Set(flagValue string) error {
-	parts := strings.Split(flagValue, ":")
-	if len(parts) == 2 {
-		na.Host = parts[0]
-		na.Port, _ = strconv.Atoi(parts[1])
-	} else {
-		return errors.New("wrong flag a format")
-	}
-	return nil
-}
-
-var address NetAddress = NetAddress{"localhost", 8080}
-
-func parseFlags() {
-	flag.Var(&address, "a", "address and port to run server")
+	flag.StringVar(&addr, "a", "", "address and port to run server")
+	flag.IntVar(&storeInterval, "i", 0, "store interval")
+	flag.StringVar(&fileStoragePath, "f", "", "file storage path")
+	flag.BoolVar(&restore, "r", false, "restore")
 
 	flag.Parse()
+
+	return &Flags{
+		Address: &addr,
+		StoreInterval: &storeInterval,
+		FileStoragePath: &fileStoragePath,
+		Restore: &restore,		
+	}
 }

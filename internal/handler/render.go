@@ -35,6 +35,5 @@ type metricsPageData struct {
 }
 
 func renderMetricsHTML(w http.ResponseWriter, gauges map[string]float64, counters map[string]int64) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = indexTmpl.Execute(w, metricsPageData{Gauges: gauges, Counters: counters})
 }
