@@ -47,7 +47,7 @@ func main() {
 
 	p := storage.NewFileProducer(cfg.File, sugar)
 	c := storage.NewFileConsumer(cfg.File, sugar)
-	fsr := storage.NewFileStorage(p, c, cfg.SyncBackupToFile, sugar)
+	fsr := storage.NewFileStorage(p, c, msr, cfg.SyncBackupToFile, sugar)
 
 	var b *backup.Backuper
 	var sc *scheduler.FileBackupScheduler
