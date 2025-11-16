@@ -5,7 +5,6 @@ import (
 	"github.com/mrPTqp/metrics/internal/models"
 	"go.uber.org/zap"
 	"net/http"
-	"strings"
 )
 
 func (mh *MetricHandler) SaveMetricHandlerJSON(w http.ResponseWriter, r *http.Request) {
@@ -42,7 +41,7 @@ func (mh *MetricHandler) handleSaveGaugeJSON(w http.ResponseWriter, req models.M
 		return
 	}
 
-	err := mh.service.SaveGaugeMetric(strings.ToLower(req.ID), req.Value)
+	err := mh.service.SaveGaugeMetric(req.ID, req.Value)
 	if err != nil {
 		mh.logger.Error("Error processing gauge metric: %s - %v", req.ID, *req.Value, zap.Error(err))
 		mh.writeJSONError(w, "processing gauge metric failed", http.StatusBadRequest)
@@ -64,7 +63,7 @@ func (mh *MetricHandler) handleSaveCounterJSON(w http.ResponseWriter, req models
 		return
 	}
 
-	err := mh.service.SaveCounterMetric(strings.ToLower(req.ID), req.Delta)
+	err := mh.service.SaveCounterMetric(req.ID, req.Delta)
 	if err != nil {
 		mh.logger.Error("Error processing counter metric: %s - %v", req.ID, *req.Delta, zap.Error(err))
 		mh.writeJSONError(w, "processing counter metric failed", http.StatusBadRequest)
@@ -107,7 +106,7 @@ func (mh *MetricHandler) ValueMetricHandlerJSON(w http.ResponseWriter, r *http.R
 }
 
 func (mh *MetricHandler) handleGetGaugeJSON(w http.ResponseWriter, req models.Metrics) {
-	value, err := mh.service.GetGaugeMetric(strings.ToLower(req.ID))
+	value, err := mh.service.GetGaugeMetric(req.ID)
 	if err != nil {
 		mh.logger.Error("Error getting gauge metric: %s", req.ID, zap.Error(err))
 		mh.writeJSONError(w, "gauge not found", http.StatusNotFound)
@@ -124,7 +123,7 @@ func (mh *MetricHandler) handleGetGaugeJSON(w http.ResponseWriter, req models.Me
 }
 
 func (mh *MetricHandler) handleGetCounterJSON(w http.ResponseWriter, req models.Metrics) {
-	value, err := mh.service.GetCounterMetric(strings.ToLower(req.ID))
+	value, err := mh.service.GetCounterMetric(req.ID)
 	if err != nil {
 		mh.logger.Error("Error getting counter metric: %s", req.ID, zap.Error(err))
 		mh.writeJSONError(w, "counter not found", http.StatusNotFound)

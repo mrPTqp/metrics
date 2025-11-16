@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
 
 func (mh *MetricHandler) SaveMetricHandler(w http.ResponseWriter, r *http.Request) {
-	mType := strings.ToLower(chi.URLParam(r, "type"))
-	mName := strings.ToLower(chi.URLParam(r, "name"))
+	mType := chi.URLParam(r, "type")
+	mName := chi.URLParam(r, "name")
 	mValue := chi.URLParam(r, "value")
 
 	if !isValidMetricType(mType) {
@@ -72,8 +71,8 @@ func (mh *MetricHandler) handleSaveCounterPlain(w http.ResponseWriter, name, val
 }
 
 func (mh *MetricHandler) GetMetricHandler(w http.ResponseWriter, r *http.Request) {
-	mType := strings.ToLower(chi.URLParam(r, "type"))
-	mName := strings.ToLower(chi.URLParam(r, "name"))
+	mType := chi.URLParam(r, "type")
+	mName := chi.URLParam(r, "name")
 
 	if !isValidMetricType(mType) {
 		mh.logger.Error("Invalid metric type: %s", mType)

@@ -197,7 +197,7 @@ func TestSaveMetricHandlerJSON(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name: "NameLowercaseConversion",
+			name: "NameCasePreserved",
 			reqBody: &models.Metrics{
 				ID:    "CPU",
 				MType: "gauge",
@@ -206,11 +206,15 @@ func TestSaveMetricHandlerJSON(t *testing.T) {
 			contentType: "application/json",
 			mockService: &mockMetricsService{
 				saveGaugeFunc: func(name string, value *float64) error {
-					assert.Equal(t, "cpu", name)
+					assert.Equal(t, "CPU", name)
+					assert.InDelta(t, 1.23, *value, 0.001)
 					return nil
 				},
 			},
 			expectedStatus: http.StatusOK,
+			expectSaved: func(t *testing.T, name string, value *float64, delta *int64) {
+				assert.Equal(t, "CPU", name)
+			},
 		},
 		{
 			name:           "EmptyBody",
@@ -331,14 +335,14 @@ func TestValueMetricHandlerJSON(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name: "NameLowercaseConversion",
+			name: "NameCasePreserved_Get",
 			reqBody: models.Metrics{
 				ID:    "TEMP",
 				MType: "gauge",
 			},
 			mockService: &mockMetricsService{
 				getGaugeFunc: func(name string) (float64, error) {
-					assert.Equal(t, "temp", name)
+					assert.Equal(t, "TEMP", name)
 					return 1.23, nil
 				},
 			},
@@ -507,7 +511,7 @@ func TestSaveMetricHandler(t *testing.T) {
 			expectSaved:    func(t *testing.T) {},
 		},
 		{
-			name:           "LowercaseConversion",
+			name:           "NameCasePreserved_URL",
 			url:            "/update/gauge/CPU/1.23",
 			mockService:    &mockMetricsService{},
 			expectedStatus: http.StatusOK,
@@ -529,7 +533,7 @@ func TestSaveMetricHandler(t *testing.T) {
 				r.ServeHTTP(rec, req)
 
 				assert.Equal(t, http.StatusOK, rec.Code)
-				assert.Equal(t, "cpu", savedName)
+				assert.Equal(t, "CPU", savedName)
 			},
 		},
 		{
@@ -666,6 +670,18 @@ func TestGetMetricHandler(t *testing.T) {
 			mockService:    &mockMetricsService{},
 			expectedStatus: http.StatusBadRequest,
 		},
+		{
+			name: "NameCasePreserved_Get_URL",
+			url:  "/value/gauge/TEMP",
+			mockService: &mockMetricsService{
+				getGaugeFunc: func(name string) (float64, error) {
+					assert.Equal(t, "TEMP", name)
+					return 100.0, nil
+				},
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   "100",
+		},
 	}
 
 	for _, tt := range tests {
@@ -704,11 +720,11 @@ func TestCollectMetricsHandler(t *testing.T) {
 			name: "Success_WithMetrics",
 			mockService: &mockMetricsService{
 				listAllFunc: func() (map[string]float64, map[string]int64) {
-					return map[string]float64{"cpu": 0.75, "memory": 0.5}, map[string]int64{"requests": 1000, "errors": 5}
+					return map[string]float64{"CPU": 0.75, "Memory": 0.5}, map[string]int64{"Requests": 1000, "Errors": 5}
 				},
 			},
 			expectedStatus: http.StatusOK,
-			expectBody:     []string{"Metrics", "cpu", "memory", "requests", "errors"},
+			expectBody:     []string{"Metrics", "CPU", "Memory", "Requests", "Errors"},
 		},
 		{
 			name: "EmptyMetrics",
