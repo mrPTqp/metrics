@@ -139,3 +139,8 @@ func (fs *FileStorage) SaveAllMetrics(gauges map[string]float64, counters map[st
 func (fs *FileStorage) CheckStorageAvailability() bool {
 	return fs.consumer.CheckFileAccess()
 }
+
+func (fs *FileStorage) Close() error {
+	fs.logger.Info("FileStorage closed")
+	return nil
+}

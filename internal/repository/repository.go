@@ -9,4 +9,5 @@ type MetricRepository interface {
 	ListCounters() (map[string]int64, error)
 	SaveAllMetrics(gauges map[string]float64, counters map[string]int64) error
 	CheckStorageAvailability() bool
+	Close() error
 }

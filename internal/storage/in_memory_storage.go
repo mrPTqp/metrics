@@ -104,3 +104,8 @@ func (s *MemStorage) logState() {
 func (s *MemStorage) CheckStorageAvailability() bool {
 	return true
 }
+
+func (s *MemStorage) Close() error {
+	s.logger.Info("menmory storage closed")
+	return nil
+}

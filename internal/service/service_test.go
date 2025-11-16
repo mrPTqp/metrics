@@ -65,6 +65,11 @@ func (m *MockMetricRepository) CheckStorageAvailability() bool {
 	return args.Bool(0)
 }
 
+func (m *MockMetricRepository) Close() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
 type MockMetricsService struct {
 	mock.Mock
 }
