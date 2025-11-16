@@ -73,3 +73,7 @@ func (ms *BaseMetricService) ListAllMetrics() (map[string]float64, map[string]in
 func (ms *BaseMetricService) SaveAllMetrics(gauges map[string]float64, counters map[string]int64) error {
 	return ms.repo.SaveAllMetrics(gauges, counters)
 }
+
+func (ms *BaseMetricService) Ping() bool {
+	return ms.repo.CheckStorageAvailability()
+}

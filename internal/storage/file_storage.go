@@ -160,3 +160,7 @@ func copyMapInt64(src map[string]int64) map[string]int64 {
 	}
 	return dst
 }
+
+func (fs *FileStorage) CheckStorageAvailability() bool {
+	return fs.consumer.CheckFileAccess()
+}

@@ -24,7 +24,20 @@ func main() {
 	sugar := logger.NewSugarLogger()
 
 	cfg := LoadConfig()
-	sugar.Infow("Configuration loaded", "config", cfg)
+	sugar.Infow("configuration loaded", "config", cfg)
+
+	var ps *storage.PostgresStorage
+	if cfg.DatabaseDsn != "" {
+		var err error
+		ps, err = storage.NewPostgresStorage(cfg.DatabaseDsn, sugar)
+		if err != nil {
+			sugar.Panic("init postgres error", err)
+		}
+		err = ps.CheckConnection()
+		if err != nil {
+			sugar.Panic("postgres connection error", err)
+		}
+	}
 
 	msr := storage.NewMemStorage(sugar)
 
@@ -78,11 +91,23 @@ func main() {
 		sugar.Info("Saving metrics to file before shutdown...")
 		b.Backup()
 	}
+
+	if ps != nil {
+		sugar.Info("Closing PostgreSQL connection...")
+		if err := ps.DB.Close(); err != nil {
+			sugar.Errorf("Error closing PostgreSQL connection: %v", err)
+		} else {
+			sugar.Info("PostgreSQL connection closed")
+		}
+	}
 }
 
 func startMetricsServer(mh *handler.MetricHandler, mws []func(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc, cfg *Config, sugar *zap.SugaredLogger) *http.Server {
 	r := chi.NewRouter()
 	r.Get("/", wrap(mh.CollectMetricsHandler, sugar, mws...))
+	if cfg.DatabaseDsn != "" {
+		r.Get("/ping", wrap(mh.DBHealthCheckHandler, sugar, mws...))
+	}
 	r.Route("/update", func(r chi.Router) {
 		r.Post("/", wrap(mh.SaveMetricHandlerJSON, sugar, mws...))
 		r.Post("/{type}/{name}/{value}", wrap(mh.SaveMetricHandler, sugar, mws...))

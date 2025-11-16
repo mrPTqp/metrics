@@ -100,3 +100,7 @@ func (s *MemStorage) logState() {
 	}
 	log.Infoln("-------------------------")
 }
+
+func (s *MemStorage) CheckStorageAvailability() bool {
+	return true
+}

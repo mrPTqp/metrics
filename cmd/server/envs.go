@@ -10,6 +10,7 @@ type Envs struct {
 	StoreInterval   *int
 	FileStoragePath *string
 	Restore         *bool
+	DatabaseDsn     *string
 }
 
 func parseEnvs() *Envs {
@@ -17,6 +18,7 @@ func parseEnvs() *Envs {
 	var storeInterval int
 	var fileStoragePath string
 	var restore bool
+	var databaseDsn string
 
 	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
 		address = envAddr
@@ -41,10 +43,17 @@ func parseEnvs() *Envs {
 			restore = envRestore
 		}
 	}
+
+	if envDatabaseDsn := os.Getenv("DATABASE_DSN"); envDatabaseDsn != "" {
+		databaseDsn = envDatabaseDsn
+	}
+
+
 	return &Envs{
 		Address:         &address,
 		StoreInterval:   &storeInterval,
 		FileStoragePath: &fileStoragePath,
 		Restore:         &restore,
+		DatabaseDsn:     &databaseDsn,
 	}
 }

@@ -58,3 +58,7 @@ func (d *FileBackupService) SaveAllMetrics(gauges map[string]float64, counters m
 	}
 	return d.repo.SaveAllMetrics(gauges, counters)
 }
+
+func (d *FileBackupService) Ping() bool {
+	return d.repo.CheckStorageAvailability()
+}

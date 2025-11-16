@@ -1,7 +1,7 @@
-// internal/service/service_test.go
 package service
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,7 +9,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// --- Мок репозитория ---
 type MockMetricRepository struct {
 	mock.Mock
 }
@@ -26,21 +25,33 @@ func (m *MockMetricRepository) SaveCounter(name string, value *int64) error {
 
 func (m *MockMetricRepository) GetGauge(name string) (float64, error) {
 	args := m.Called(name)
+	if args.Get(0) == nil {
+		return 0, args.Error(1)
+	}
 	return args.Get(0).(float64), args.Error(1)
 }
 
 func (m *MockMetricRepository) GetCounter(name string) (int64, error) {
 	args := m.Called(name)
+	if args.Get(0) == nil {
+		return 0, args.Error(1)
+	}
 	return args.Get(0).(int64), args.Error(1)
 }
 
 func (m *MockMetricRepository) ListGauges() (map[string]float64, error) {
 	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(map[string]float64), args.Error(1)
 }
 
 func (m *MockMetricRepository) ListCounters() (map[string]int64, error) {
 	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(map[string]int64), args.Error(1)
 }
 
@@ -49,195 +60,11 @@ func (m *MockMetricRepository) SaveAllMetrics(gauges map[string]float64, counter
 	return args.Error(0)
 }
 
-// --- Тесты для BaseMetricService ---
-func TestBaseMetricService_SaveGauge(t *testing.T) {
-	mockRepo := new(MockMetricRepository)
-	logger := zap.NewNop().Sugar()
-	value := 0.75
-
-	mockRepo.On("SaveGauge", "cpu", &value).Return(nil)
-
-	service := NewMetricsService(mockRepo, logger)
-	err := service.SaveGaugeMetric("cpu", &value)
-
-	assert.NoError(t, err)
-	mockRepo.AssertExpectations(t)
+func (m *MockMetricRepository) CheckStorageAvailability() bool {
+	args := m.Called()
+	return args.Bool(0)
 }
 
-func TestBaseMetricService_SaveGauge_Error(t *testing.T) {
-	mockRepo := new(MockMetricRepository)
-	logger := zap.NewNop().Sugar()
-	value := 1.0
-
-	mockRepo.On("SaveGauge", "err", &value).Return(assert.AnError)
-
-	service := NewMetricsService(mockRepo, logger)
-	err := service.SaveGaugeMetric("err", &value)
-
-	assert.Error(t, err)
-	mockRepo.AssertExpectations(t)
-}
-
-func TestBaseMetricService_SaveCounter(t *testing.T) {
-	mockRepo := new(MockMetricRepository)
-	logger := zap.NewNop().Sugar()
-	value := int64(100)
-
-	mockRepo.On("SaveCounter", "req", &value).Return(nil)
-
-	service := NewMetricsService(mockRepo, logger)
-	err := service.SaveCounterMetric("req", &value)
-
-	assert.NoError(t, err)
-	mockRepo.AssertExpectations(t)
-}
-
-func TestBaseMetricService_GetGauge(t *testing.T) {
-	mockRepo := new(MockMetricRepository)
-	logger := zap.NewNop().Sugar()
-
-	mockRepo.On("GetGauge", "temp").Return(25.5, nil)
-
-	service := NewMetricsService(mockRepo, logger)
-	val, err := service.GetGaugeMetric("temp")
-
-	assert.NoError(t, err)
-	assert.Equal(t, 25.5, val)
-	mockRepo.AssertExpectations(t)
-}
-
-func TestBaseMetricService_GetCounter(t *testing.T) {
-	mockRepo := new(MockMetricRepository)
-	logger := zap.NewNop().Sugar()
-
-	mockRepo.On("GetCounter", "hits").Return(int64(500), nil)
-
-	service := NewMetricsService(mockRepo, logger)
-	val, err := service.GetCounterMetric("hits")
-
-	assert.NoError(t, err)
-	assert.Equal(t, int64(500), val)
-	mockRepo.AssertExpectations(t)
-}
-
-func TestBaseMetricService_ListAllMetrics(t *testing.T) {
-	mockRepo := new(MockMetricRepository)
-	logger := zap.NewNop().Sugar()
-
-	mockRepo.On("ListGauges").Return(map[string]float64{"cpu": 0.8}, nil)
-	mockRepo.On("ListCounters").Return(map[string]int64{"req": 1000}, nil)
-
-	service := NewMetricsService(mockRepo, logger)
-	gauges, counters := service.ListAllMetrics()
-
-	assert.Equal(t, 0.8, gauges["cpu"])
-	assert.Equal(t, int64(1000), counters["req"])
-	mockRepo.AssertExpectations(t)
-}
-
-func TestBaseMetricService_SaveAllMetrics(t *testing.T) {
-	mockRepo := new(MockMetricRepository)
-	logger := zap.NewNop().Sugar()
-
-	gauges := map[string]float64{"cpu": 0.5}
-	counters := map[string]int64{"req": 10}
-
-	mockRepo.On("SaveAllMetrics", gauges, counters).Return(nil)
-
-	service := NewMetricsService(mockRepo, logger)
-	err := service.SaveAllMetrics(gauges, counters)
-
-	assert.NoError(t, err)
-	mockRepo.AssertExpectations(t)
-}
-
-// --- Тесты для FileBackupService ---
-func TestFileBackupService_SaveGauge(t *testing.T) {
-	baseService := new(MockMetricsService)
-	fileRepo := new(MockMetricRepository)
-
-	logger := zap.NewNop().Sugar()
-	value := 1.23
-
-	baseService.On("SaveGaugeMetric", "cpu", &value).Return(nil)
-	fileRepo.On("SaveGauge", "cpu", &value).Return(nil)
-
-	decorator := NewFileBackupService(baseService, fileRepo, logger)
-	err := decorator.SaveGaugeMetric("cpu", &value)
-
-	assert.NoError(t, err)
-	baseService.AssertExpectations(t)
-	fileRepo.AssertExpectations(t)
-}
-
-func TestFileBackupService_SaveGauge_BaseError(t *testing.T) {
-	baseService := new(MockMetricsService)
-	fileRepo := new(MockMetricRepository)
-	logger := zap.NewNop().Sugar()
-	value := 1.23
-
-	baseService.On("SaveGaugeMetric", "cpu", &value).Return(assert.AnError)
-
-	decorator := NewFileBackupService(baseService, fileRepo, logger)
-	err := decorator.SaveGaugeMetric("cpu", &value)
-
-	assert.Error(t, err)
-	baseService.AssertExpectations(t)
-	fileRepo.AssertNotCalled(t, "SaveGauge") // Не должен сохранять в файл, если основной сервис упал
-}
-
-func TestFileBackupService_SaveCounter(t *testing.T) {
-	baseService := new(MockMetricsService)
-	fileRepo := new(MockMetricRepository)
-	logger := zap.NewNop().Sugar()
-	value := int64(50)
-
-	baseService.On("SaveCounterMetric", "hits", &value).Return(nil)
-	fileRepo.On("SaveCounter", "hits", &value).Return(nil)
-
-	decorator := NewFileBackupService(baseService, fileRepo, logger)
-	err := decorator.SaveCounterMetric("hits", &value)
-
-	assert.NoError(t, err)
-	baseService.AssertExpectations(t)
-	fileRepo.AssertExpectations(t)
-}
-
-func TestFileBackupService_GetGauge(t *testing.T) {
-	baseService := new(MockMetricsService)
-	fileRepo := new(MockMetricRepository)
-	logger := zap.NewNop().Sugar()
-
-	baseService.On("GetGaugeMetric", "temp").Return(20.5, nil)
-
-	decorator := NewFileBackupService(baseService, fileRepo, logger)
-	val, err := decorator.GetGaugeMetric("temp")
-
-	assert.NoError(t, err)
-	assert.Equal(t, 20.5, val)
-	baseService.AssertExpectations(t)
-}
-
-func TestFileBackupService_SaveAllMetrics(t *testing.T) {
-	baseService := new(MockMetricsService)
-	fileRepo := new(MockMetricRepository)
-	logger := zap.NewNop().Sugar()
-
-	gauges := map[string]float64{"g1": 1.1}
-	counters := map[string]int64{"c1": 2}
-
-	baseService.On("SaveAllMetrics", gauges, counters).Return(nil)
-	fileRepo.On("SaveAllMetrics", gauges, counters).Return(nil)
-
-	decorator := NewFileBackupService(baseService, fileRepo, logger)
-	err := decorator.SaveAllMetrics(gauges, counters)
-
-	assert.NoError(t, err)
-	baseService.AssertExpectations(t)
-	fileRepo.AssertExpectations(t)
-}
-
-// --- Mock для сервиса (для тестирования декоратора) ---
 type MockMetricsService struct {
 	mock.Mock
 }
@@ -254,20 +81,732 @@ func (m *MockMetricsService) SaveCounterMetric(name string, value *int64) error 
 
 func (m *MockMetricsService) GetGaugeMetric(name string) (float64, error) {
 	args := m.Called(name)
+	if args.Get(0) == nil {
+		return 0, args.Error(1)
+	}
 	return args.Get(0).(float64), args.Error(1)
 }
 
 func (m *MockMetricsService) GetCounterMetric(name string) (int64, error) {
 	args := m.Called(name)
+	if args.Get(0) == nil {
+		return 0, args.Error(1)
+	}
 	return args.Get(0).(int64), args.Error(1)
 }
 
 func (m *MockMetricsService) ListAllMetrics() (map[string]float64, map[string]int64) {
 	args := m.Called()
-	return args.Get(0).(map[string]float64), args.Get(1).(map[string]int64)
+	var gauges map[string]float64
+	var counters map[string]int64
+	if args.Get(0) != nil {
+		gauges = args.Get(0).(map[string]float64)
+	}
+	if args.Get(1) != nil {
+		counters = args.Get(1).(map[string]int64)
+	}
+	return gauges, counters
 }
 
 func (m *MockMetricsService) SaveAllMetrics(gauges map[string]float64, counters map[string]int64) error {
 	args := m.Called(gauges, counters)
 	return args.Error(0)
+}
+
+func (m *MockMetricsService) Ping() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+func TestBaseMetricService_SaveGaugeMetric(t *testing.T) {
+	testCases := []struct {
+		name          string
+		gaugeName     string
+		value         float64
+		mockError     error
+		expectedError bool
+	}{
+		{
+			name:          "Success case",
+			gaugeName:     "test_gauge",
+			value:         3.14159,
+			mockError:     nil,
+			expectedError: false,
+		},
+		{
+			name:          "Repository error",
+			gaugeName:     "error_gauge",
+			value:         2.71828,
+			mockError:     errors.New("repository error"),
+			expectedError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRepo := new(MockMetricRepository)
+			logger := zap.NewNop().Sugar()
+			value := tc.value
+
+			mockRepo.On("SaveGauge", tc.gaugeName, &value).Return(tc.mockError)
+
+			service := NewMetricsService(mockRepo, logger)
+			err := service.SaveGaugeMetric(tc.gaugeName, &value)
+
+			if tc.expectedError {
+				assert.Error(t, err)
+				assert.Equal(t, tc.mockError, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBaseMetricService_SaveCounterMetric(t *testing.T) {
+	testCases := []struct {
+		name          string
+		counterName   string
+		value         int64
+		mockError     error
+		expectedError bool
+	}{
+		{
+			name:          "Success case",
+			counterName:   "test_counter",
+			value:         42,
+			mockError:     nil,
+			expectedError: false,
+		},
+		{
+			name:          "Repository error",
+			counterName:   "error_counter",
+			value:         100,
+			mockError:     errors.New("repository error"),
+			expectedError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRepo := new(MockMetricRepository)
+			logger := zap.NewNop().Sugar()
+			value := tc.value
+
+			mockRepo.On("SaveCounter", tc.counterName, &value).Return(tc.mockError)
+
+			service := NewMetricsService(mockRepo, logger)
+			err := service.SaveCounterMetric(tc.counterName, &value)
+
+			if tc.expectedError {
+				assert.Error(t, err)
+				assert.Equal(t, tc.mockError, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBaseMetricService_GetGaugeMetric(t *testing.T) {
+	testCases := []struct {
+		name          string
+		gaugeName     string
+		returnValue   float64
+		mockError     error
+		expectedError bool
+	}{
+		{
+			name:          "Success case",
+			gaugeName:     "test_gauge",
+			returnValue:   25.75,
+			mockError:     nil,
+			expectedError: false,
+		},
+		{
+			name:          "Not found",
+			gaugeName:     "missing_gauge",
+			returnValue:   0,
+			mockError:     errors.New("not found"),
+			expectedError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRepo := new(MockMetricRepository)
+			logger := zap.NewNop().Sugar()
+
+			mockRepo.On("GetGauge", tc.gaugeName).Return(tc.returnValue, tc.mockError)
+
+			service := NewMetricsService(mockRepo, logger)
+			value, err := service.GetGaugeMetric(tc.gaugeName)
+
+			if tc.expectedError {
+				assert.Error(t, err)
+				assert.Equal(t, tc.mockError, err)
+				assert.Equal(t, tc.returnValue, value)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.returnValue, value)
+			}
+			mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBaseMetricService_GetCounterMetric(t *testing.T) {
+	testCases := []struct {
+		name          string
+		counterName   string
+		returnValue   int64
+		mockError     error
+		expectedError bool
+	}{
+		{
+			name:          "Success case",
+			counterName:   "test_counter",
+			returnValue:   500,
+			mockError:     nil,
+			expectedError: false,
+		},
+		{
+			name:          "Not found",
+			counterName:   "missing_counter",
+			returnValue:   0,
+			mockError:     errors.New("not found"),
+			expectedError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRepo := new(MockMetricRepository)
+			logger := zap.NewNop().Sugar()
+
+			mockRepo.On("GetCounter", tc.counterName).Return(tc.returnValue, tc.mockError)
+
+			service := NewMetricsService(mockRepo, logger)
+			value, err := service.GetCounterMetric(tc.counterName)
+
+			if tc.expectedError {
+				assert.Error(t, err)
+				assert.Equal(t, tc.mockError, err)
+				assert.Equal(t, tc.returnValue, value)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.returnValue, value)
+			}
+			mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBaseMetricService_ListAllMetrics(t *testing.T) {
+	testCases := []struct {
+		name             string
+		gaugesReturn     map[string]float64
+		countersReturn   map[string]int64
+		gaugesErr        error
+		countersErr      error
+		expectedGauges   map[string]float64
+		expectedCounters map[string]int64
+	}{
+		{
+			name:             "Success case",
+			gaugesReturn:     map[string]float64{"cpu": 0.75, "memory": 0.50},
+			countersReturn:   map[string]int64{"requests": 1000, "errors": 5},
+			gaugesErr:        nil,
+			countersErr:      nil,
+			expectedGauges:   map[string]float64{"cpu": 0.75, "memory": 0.50},
+			expectedCounters: map[string]int64{"requests": 1000, "errors": 5},
+		},
+		{
+			name:             "Partial error - counters error",
+			gaugesReturn:     map[string]float64{"cpu": 0.75},
+			countersReturn:   nil,
+			gaugesErr:        nil,
+			countersErr:      errors.New("list counters error"),
+			expectedGauges:   map[string]float64{"cpu": 0.75},
+			expectedCounters: map[string]int64{},
+		},
+		{
+			name:             "Both errors",
+			gaugesReturn:     nil,
+			countersReturn:   nil,
+			gaugesErr:        errors.New("list gauges error"),
+			countersErr:      errors.New("list counters error"),
+			expectedGauges:   map[string]float64{},
+			expectedCounters: map[string]int64{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRepo := new(MockMetricRepository)
+			logger := zap.NewNop().Sugar()
+
+			mockRepo.On("ListGauges").Return(tc.gaugesReturn, tc.gaugesErr)
+			mockRepo.On("ListCounters").Return(tc.countersReturn, tc.countersErr)
+
+			service := NewMetricsService(mockRepo, logger)
+			gauges, counters := service.ListAllMetrics()
+
+			assert.Equal(t, tc.expectedGauges, gauges)
+			assert.Equal(t, tc.expectedCounters, counters)
+			mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBaseMetricService_SaveAllMetrics(t *testing.T) {
+	testCases := []struct {
+		name          string
+		gauges        map[string]float64
+		counters      map[string]int64
+		mockError     error
+		expectedError bool
+	}{
+		{
+			name:          "Success case",
+			gauges:        map[string]float64{"cpu": 0.75, "memory": 0.50},
+			counters:      map[string]int64{"requests": 1000, "errors": 5},
+			mockError:     nil,
+			expectedError: false,
+		},
+		{
+			name:          "Error case",
+			gauges:        map[string]float64{"cpu": 0.75},
+			counters:      map[string]int64{"requests": 1000},
+			mockError:     errors.New("save error"),
+			expectedError: true,
+		},
+		{
+			name:          "Empty maps",
+			gauges:        make(map[string]float64),
+			counters:      make(map[string]int64),
+			mockError:     nil,
+			expectedError: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRepo := new(MockMetricRepository)
+			logger := zap.NewNop().Sugar()
+
+			mockRepo.On("SaveAllMetrics", tc.gauges, tc.counters).Return(tc.mockError)
+
+			service := NewMetricsService(mockRepo, logger)
+			err := service.SaveAllMetrics(tc.gauges, tc.counters)
+
+			if tc.expectedError {
+				assert.Error(t, err)
+				assert.Equal(t, tc.mockError, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBaseMetricService_Ping(t *testing.T) {
+	testCases := []struct {
+		name           string
+		availability   bool
+		expectedResult bool
+	}{
+		{
+			name:           "Success",
+			availability:   true,
+			expectedResult: true,
+		},
+		{
+			name:           "Failure",
+			availability:   false,
+			expectedResult: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRepo := new(MockMetricRepository)
+			logger := zap.NewNop().Sugar()
+
+			mockRepo.On("CheckStorageAvailability").Return(tc.availability)
+
+			service := NewMetricsService(mockRepo, logger)
+			result := service.Ping()
+
+			assert.Equal(t, tc.expectedResult, result)
+			mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestFileBackupService_SaveGaugeMetric(t *testing.T) {
+	testCases := []struct {
+		name             string
+		gaugeName        string
+		value            float64
+		baseServiceError error
+		fileBackupError  error
+		expectError      bool
+		expectedError    error
+		expectFileCalled bool
+	}{
+		{
+			name:             "Success",
+			gaugeName:        "cpu",
+			value:            1.23,
+			baseServiceError: nil,
+			fileBackupError:  nil,
+			expectError:      false,
+			expectFileCalled: true,
+		},
+		{
+			name:             "Base service error",
+			gaugeName:        "cpu",
+			value:            1.23,
+			baseServiceError: errors.New("base service error"),
+			fileBackupError:  nil,
+			expectError:      true,
+			expectedError:    errors.New("base service error"),
+			expectFileCalled: false,
+		},
+		{
+			name:             "File backup error",
+			gaugeName:        "cpu",
+			value:            1.23,
+			baseServiceError: nil,
+			fileBackupError:  errors.New("file backup error"),
+			expectError:      false,
+			expectFileCalled: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			baseService := new(MockMetricsService)
+			fileRepo := new(MockMetricRepository)
+			logger := zap.NewNop().Sugar()
+			value := tc.value
+
+			baseService.On("SaveGaugeMetric", tc.gaugeName, &value).Return(tc.baseServiceError)
+			if tc.expectFileCalled {
+				fileRepo.On("SaveGauge", tc.gaugeName, &value).Return(tc.fileBackupError)
+			}
+
+			decorator := NewFileBackupService(baseService, fileRepo, logger)
+			err := decorator.SaveGaugeMetric(tc.gaugeName, &value)
+
+			if tc.expectError {
+				assert.Error(t, err)
+				assert.Equal(t, tc.expectedError, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			baseService.AssertExpectations(t)
+			if tc.expectFileCalled {
+				fileRepo.AssertExpectations(t)
+			} else {
+				fileRepo.AssertNotCalled(t, "SaveGauge")
+			}
+		})
+	}
+}
+
+func TestFileBackupService_SaveCounterMetric(t *testing.T) {
+	testCases := []struct {
+		name             string
+		counterName      string
+		value            int64
+		baseServiceError error
+		fileBackupError  error
+		expectError      bool
+		expectedError    error
+		expectFileCalled bool
+	}{
+		{
+			name:             "Success",
+			counterName:      "hits",
+			value:            50,
+			baseServiceError: nil,
+			fileBackupError:  nil,
+			expectError:      false,
+			expectFileCalled: true,
+		},
+		{
+			name:             "Base service error",
+			counterName:      "hits",
+			value:            50,
+			baseServiceError: errors.New("base service error"),
+			fileBackupError:  nil,
+			expectError:      true,
+			expectedError:    errors.New("base service error"),
+			expectFileCalled: false,
+		},
+		{
+			name:             "File backup error",
+			counterName:      "hits",
+			value:            50,
+			baseServiceError: nil,
+			fileBackupError:  errors.New("file backup error"),
+			expectError:      false,
+			expectFileCalled: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			baseService := new(MockMetricsService)
+			fileRepo := new(MockMetricRepository)
+			logger := zap.NewNop().Sugar()
+			value := tc.value
+
+			baseService.On("SaveCounterMetric", tc.counterName, &value).Return(tc.baseServiceError)
+			if tc.expectFileCalled {
+				fileRepo.On("SaveCounter", tc.counterName, &value).Return(tc.fileBackupError)
+			}
+
+			decorator := NewFileBackupService(baseService, fileRepo, logger)
+			err := decorator.SaveCounterMetric(tc.counterName, &value)
+
+			if tc.expectError {
+				assert.Error(t, err)
+				assert.Equal(t, tc.expectedError, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			baseService.AssertExpectations(t)
+			if tc.expectFileCalled {
+				fileRepo.AssertExpectations(t)
+			} else {
+				fileRepo.AssertNotCalled(t, "SaveCounter")
+			}
+		})
+	}
+}
+
+func TestFileBackupService_GetGaugeMetric(t *testing.T) {
+	testCases := []struct {
+		name          string
+		gaugeName     string
+		returnValue   float64
+		mockError     error
+		expectedError bool
+	}{
+		{
+			name:          "Success",
+			gaugeName:     "temp",
+			returnValue:   20.5,
+			mockError:     nil,
+			expectedError: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			baseService := new(MockMetricsService)
+			fileRepo := new(MockMetricRepository)
+			logger := zap.NewNop().Sugar()
+
+			baseService.On("GetGaugeMetric", tc.gaugeName).Return(tc.returnValue, tc.mockError)
+
+			decorator := NewFileBackupService(baseService, fileRepo, logger)
+			value, err := decorator.GetGaugeMetric(tc.gaugeName)
+
+			if tc.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.returnValue, value)
+			}
+
+			baseService.AssertExpectations(t)
+			fileRepo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestFileBackupService_GetCounterMetric(t *testing.T) {
+	testCases := []struct {
+		name          string
+		counterName   string
+		returnValue   int64
+		mockError     error
+		expectedError bool
+	}{
+		{
+			name:          "Success",
+			counterName:   "hits",
+			returnValue:   42,
+			mockError:     nil,
+			expectedError: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			baseService := new(MockMetricsService)
+			fileRepo := new(MockMetricRepository)
+			logger := zap.NewNop().Sugar()
+
+			baseService.On("GetCounterMetric", tc.counterName).Return(tc.returnValue, tc.mockError)
+
+			decorator := NewFileBackupService(baseService, fileRepo, logger)
+			value, err := decorator.GetCounterMetric(tc.counterName)
+
+			if tc.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.returnValue, value)
+			}
+
+			baseService.AssertExpectations(t)
+			fileRepo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestFileBackupService_ListAllMetrics(t *testing.T) {
+	testCases := []struct {
+		name     string
+		gauges   map[string]float64
+		counters map[string]int64
+	}{
+		{
+			name:     "Success",
+			gauges:   map[string]float64{"cpu": 0.8},
+			counters: map[string]int64{"req": 1000},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			baseService := new(MockMetricsService)
+			fileRepo := new(MockMetricRepository)
+			logger := zap.NewNop().Sugar()
+
+			baseService.On("ListAllMetrics").Return(tc.gauges, tc.counters)
+
+			decorator := NewFileBackupService(baseService, fileRepo, logger)
+			gauges, counters := decorator.ListAllMetrics()
+
+			assert.Equal(t, tc.gauges, gauges)
+			assert.Equal(t, tc.counters, counters)
+
+			baseService.AssertExpectations(t)
+		})
+	}
+}
+
+func TestFileBackupService_SaveAllMetrics(t *testing.T) {
+	testCases := []struct {
+		name             string
+		gauges           map[string]float64
+		counters         map[string]int64
+		baseServiceError error
+		fileBackupError  error
+		expectError      bool
+		expectedError    error
+		expectFileCalled bool
+	}{
+		{
+			name:             "Success",
+			gauges:           map[string]float64{"g1": 1.1},
+			counters:         map[string]int64{"c1": 2},
+			baseServiceError: nil,
+			fileBackupError:  nil,
+			expectError:      false,
+			expectFileCalled: true,
+		},
+		{
+			name:             "Base service error",
+			gauges:           map[string]float64{"g1": 1.1},
+			counters:         map[string]int64{"c1": 2},
+			baseServiceError: errors.New("base service error"),
+			fileBackupError:  nil,
+			expectError:      true,
+			expectedError:    errors.New("base service error"),
+			expectFileCalled: false,
+		},
+		{
+			name:             "File backup error",
+			gauges:           map[string]float64{"g1": 1.1},
+			counters:         map[string]int64{"c1": 2},
+			baseServiceError: nil,
+			fileBackupError:  errors.New("file backup error"),
+			expectError:      true,
+			expectedError:    errors.New("file backup error"),
+			expectFileCalled: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			baseService := new(MockMetricsService)
+			fileRepo := new(MockMetricRepository)
+			logger := zap.NewNop().Sugar()
+
+			baseService.On("SaveAllMetrics", tc.gauges, tc.counters).Return(tc.baseServiceError)
+			if tc.expectFileCalled {
+				fileRepo.On("SaveAllMetrics", tc.gauges, tc.counters).Return(tc.fileBackupError)
+			}
+
+			decorator := NewFileBackupService(baseService, fileRepo, logger)
+			err := decorator.SaveAllMetrics(tc.gauges, tc.counters)
+
+			if tc.expectError {
+				assert.Error(t, err)
+				assert.Equal(t, tc.expectedError, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			baseService.AssertExpectations(t)
+			if tc.expectFileCalled {
+				fileRepo.AssertExpectations(t)
+			} else {
+				fileRepo.AssertNotCalled(t, "SaveAllMetrics")
+			}
+		})
+	}
+}
+
+func TestFileBackupService_Ping(t *testing.T) {
+	testCases := []struct {
+		name           string
+		availability   bool
+		expectedResult bool
+	}{
+		{
+			name:           "Success",
+			availability:   true,
+			expectedResult: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			baseService := new(MockMetricsService)
+			fileRepo := new(MockMetricRepository)
+			logger := zap.NewNop().Sugar()
+
+			fileRepo.On("CheckStorageAvailability").Return(tc.availability)
+
+			decorator := NewFileBackupService(baseService, fileRepo, logger)
+			result := decorator.Ping()
+
+			assert.Equal(t, tc.expectedResult, result)
+			fileRepo.AssertExpectations(t)
+			baseService.AssertExpectations(t)
+		})
+	}
 }

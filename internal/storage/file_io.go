@@ -98,3 +98,16 @@ func (fc *FileConsumer) ReadData() (snapshotData, error) {
 
 	return data, nil
 }
+
+func (fc *FileConsumer) CheckFileAccess() bool {
+	_, err := os.Stat(fc.filePath)
+	if err != nil {
+		if os.IsNotExist(err) || os.IsPermission(err) {
+			fc.logger.Info("File is not available", zap.String("file", fc.filePath), zap.Error(err))
+			return false
+		}
+		fc.logger.Info("Error accessing file", zap.String("file", fc.filePath), zap.Error(err))
+		return false
+	}
+	return true
+}

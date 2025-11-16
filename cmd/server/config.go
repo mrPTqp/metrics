@@ -13,6 +13,7 @@ type Config struct {
 	Restore          bool
 	File             string
 	SyncBackupToFile bool
+	DatabaseDsn      string
 }
 
 func LoadConfig() *Config {
@@ -56,11 +57,19 @@ func LoadConfig() *Config {
 		restore = *flags.Restore
 	}
 
+	var databaseDsn string
+	if envs.DatabaseDsn != nil && *envs.DatabaseDsn != "" {
+		databaseDsn = *envs.DatabaseDsn
+	} else if flags.DatabaseDsn != nil && *flags.DatabaseDsn != "" {
+		databaseDsn = *flags.DatabaseDsn
+	}
+
 	return &Config{
 		Address:          na,
 		StoreInterval:    storeInterval,
 		Restore:          restore,
 		File:             filepath.FromSlash(fileStoragePath + "events.log"),
 		SyncBackupToFile: syncBackupToFile,
+		DatabaseDsn:      databaseDsn,
 	}
 }
