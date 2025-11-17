@@ -7,7 +7,6 @@ import (
 	"log"
 	"math/rand/v2"
 	"net/http"
-	"runtime"
 	"strconv"
 	"time"
 
@@ -15,30 +14,33 @@ import (
 )
 
 type MetricsAgent struct {
-	client *http.Client
+	c  *http.Client
+	ec *HTTPErrorClassifier
 }
 
 func NewMetricsAgent(client *http.Client) *MetricsAgent {
 	return &MetricsAgent{
-		client: client,
+		c:  client,
+		ec: NewHTTPErrorClassifier(),
 	}
 }
 
 func (mh *MetricsAgent) StartMetricsAgent(address string, reportInterval, poolInterval int) {
 	log.Printf("agent will send requests to %s", address)
 
-	var metrics map[string]float64
 	var poolCounter int64 = 0
 	var lastReportTime = time.Now()
 	for {
-		metrics = collectMetrics()
+		gauges := CollectMetrics()
+		gauges["RandomValue"] = rand.Float64()
+		counters := make(map[string]int64)
 		poolCounter++
-		metrics["RandomValue"] = rand.Float64()
+		counters["PollCount"] = poolCounter
 
 		currentTime := time.Now()
 		if currentTime.Sub(lastReportTime) >= time.Duration(reportInterval)*time.Second {
 			var errorCounter = 0
-			err := sendMetrics(metrics, mh.client, poolCounter, address)
+			err := mh.sendMetrics(gauges, counters, mh.c, address)
 			if err != nil {
 				errorCounter++
 				log.Printf("[ERROR] %s", err)
@@ -51,32 +53,33 @@ func (mh *MetricsAgent) StartMetricsAgent(address string, reportInterval, poolIn
 	}
 }
 
-func sendMetrics(metrics map[string]float64, client *http.Client, poolCounter int64, address string) error {
-	for mName, mValue := range metrics {
+func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[string]int64, client *http.Client, address string) error {
+	if len(gauges) == 0 && len(counters) == 0 {
+		return nil
+	}
+
+	g := make([]models.Metrics, 0, len(gauges))
+	for name, value := range gauges {
 		req := models.Metrics{
-			ID:    mName,
+			ID:    name,
 			MType: "gauge",
-			Value: &mValue,
+			Value: &value,
 		}
-		err := sendMetric(*client, "http://"+address+"/update", req)
-		if err != nil {
-			return err
-		}
+		g = append(g, req)
 	}
 
-	req := models.Metrics{
-		ID:    "PollCount",
-		MType: "counter",
-		Delta: &poolCounter,
+	c := make([]models.Metrics, 0, len(counters))
+	for name, delta := range counters {
+		req := models.Metrics{
+			ID:    name,
+			MType: "counter",
+			Delta: &delta,
+		}
+		c = append(c, req)
 	}
-	err := sendMetric(*client, "http://"+address+"/update", req)
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
-func sendMetric(client http.Client, url string, req models.Metrics) error {
+	req := append(g, c...)
+
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
 		return err
@@ -87,6 +90,8 @@ func sendMetric(client http.Client, url string, req models.Metrics) error {
 		return err
 	}
 
+	url := "http://" + address + "/updates"
+
 	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(compressedBody))
 	if err != nil {
 		return err
@@ -94,7 +99,7 @@ func sendMetric(client http.Client, url string, req models.Metrics) error {
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Content-Encoding", "gzip")
 
-	resp, err := client.Do(httpReq)
+	resp, err := mh.doWithRetry(httpReq)
 	if err != nil {
 		return err
 	}
@@ -103,41 +108,36 @@ func sendMetric(client http.Client, url string, req models.Metrics) error {
 	if resp.StatusCode != http.StatusOK {
 		return errors.New("[ERROR] HTTP status " + strconv.Itoa(resp.StatusCode))
 	}
+
 	return nil
 }
 
+func (mh *MetricsAgent) doWithRetry(req *http.Request) (*http.Response, error) {
+	var resp *http.Response
+	var err error
+	var maxRetries = 3
+	var initialDelay = 1 * time.Second
 
-func collectMetrics() map[string]float64 {
-	var memStats runtime.MemStats
-	runtime.ReadMemStats(&memStats)
+	for i := 0; i <= maxRetries; i++ {
+		resp, err = mh.c.Do(req)
 
-	metrics := make(map[string]float64)
-	metrics["GCCPUFraction"] = memStats.GCCPUFraction
-	metrics["GCSys"] = float64(memStats.GCSys)
-	metrics["HeapAlloc"] = float64(memStats.HeapAlloc)
-	metrics["HeapIdle"] = float64(memStats.HeapIdle)
-	metrics["HeapInuse"] = float64(memStats.HeapInuse)
-	metrics["HeapObjects"] = float64(memStats.HeapObjects)
-	metrics["HeapReleased"] = float64(memStats.HeapReleased)
-	metrics["HeapSys"] = float64(memStats.HeapSys)
-	metrics["LastGC"] = float64(memStats.LastGC)
-	metrics["Lookups"] = float64(memStats.Lookups)
-	metrics["MCacheInuse"] = float64(memStats.MCacheInuse)
-	metrics["MCacheSys"] = float64(memStats.MCacheSys)
-	metrics["MSpanInuse"] = float64(memStats.MSpanInuse)
-	metrics["MSpanSys"] = float64(memStats.MSpanSys)
-	metrics["Mallocs"] = float64(memStats.Mallocs)
-	metrics["NextGC"] = float64(memStats.NextGC)
-	metrics["NumForcedGC"] = float64(memStats.NumForcedGC)
-	metrics["NumGC"] = float64(memStats.NumGC)
-	metrics["OtherSys"] = float64(memStats.OtherSys)
-	metrics["PauseTotalNs"] = float64(memStats.PauseTotalNs)
-	metrics["StackInuse"] = float64(memStats.StackInuse)
-	metrics["StackSys"] = float64(memStats.StackSys)
-	metrics["Sys"] = float64(memStats.Sys)
-	metrics["TotalAlloc"] = float64(memStats.TotalAlloc)
-	metrics["Alloc"] = float64(memStats.Alloc)
-	metrics["BuckHashSys"] = float64(memStats.BuckHashSys)
-	metrics["Frees"] = float64(memStats.Frees)
-	return metrics
+		if err == nil {
+			return resp, nil
+		}
+
+		classification := mh.ec.Classify(err)
+
+		if classification == NonRetriable {
+			return nil, err
+		}
+
+		if i == maxRetries {
+			break
+		}
+
+		time.Sleep(initialDelay)
+		initialDelay += 2
+	}
+
+	return nil, err
 }
