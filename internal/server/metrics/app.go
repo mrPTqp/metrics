@@ -6,8 +6,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
-	"github.com/mrPTqp/metrics/internal/server/handler"
 	"github.com/mrPTqp/metrics/internal/server/config"
+	"github.com/mrPTqp/metrics/internal/server/handler"
 )
 
 func StartMetricsServer(mh *handler.MetricHandler, mws []func(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc, cfg *config.Config, sugar *zap.SugaredLogger) *http.Server {
@@ -19,6 +19,9 @@ func StartMetricsServer(mh *handler.MetricHandler, mws []func(h http.HandlerFunc
 	r.Route("/update", func(r chi.Router) {
 		r.Post("/", wrap(mh.SaveMetricHandlerJSON, sugar, mws...))
 		r.Post("/{type}/{name}/{value}", wrap(mh.SaveMetricHandler, sugar, mws...))
+	})
+	r.Route("/updates", func(r chi.Router) {
+		r.Post("/", wrap(mh.SaveMetricsHandlerJSON, sugar, mws...))
 	})
 	r.Route("/value", func(r chi.Router) {
 		r.Post("/", wrap(mh.ValueMetricHandlerJSON, sugar, mws...))

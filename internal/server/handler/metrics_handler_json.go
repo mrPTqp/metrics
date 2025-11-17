@@ -34,6 +34,57 @@ func (mh *MetricHandler) SaveMetricHandlerJSON(w http.ResponseWriter, r *http.Re
 	}
 }
 
+func (mh *MetricHandler) SaveMetricsHandlerJSON(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Header.Get("Content-Type") != "application/json" {
+		mh.logger.Error("unexpected content type", zap.String("content-type", r.Header.Get("Content-Type")))
+		mh.writeJSONError(w, "expected JSON", http.StatusBadRequest)
+		return
+	}
+
+	var req []models.Metrics
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		mh.logger.Error("cannot decode request JSON body", zap.Error(err))
+		mh.writeJSONError(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	gauges := make(map[string]float64)
+	counters := make(map[string]int64)
+	for _, metric := range req {
+		switch metric.MType {
+		case "gauge":
+			if metric.Value == nil {
+				mh.logger.Error("missing 'value' for gauge metric %s", metric.ID)
+				mh.writeJSONError(w, "missing value for gauge", http.StatusBadRequest)
+				return
+			}
+			gauges[metric.ID] = *metric.Value
+		case "counter":
+			if metric.Delta == nil {
+				mh.logger.Error("missing 'delta' for counter metric %s", metric.ID)
+				mh.writeJSONError(w, "missing value for counter", http.StatusBadRequest)
+				return
+			}
+			counters[metric.ID] += *metric.Delta
+		default:
+			mh.logger.Error("Unsupported metric type: %s", metric.MType)
+			mh.writeJSONError(w, "unsupported metric type", http.StatusBadRequest)
+		}
+	}
+
+	err := mh.service.SaveAllMetrics(gauges, counters)
+	if err != nil {
+		mh.logger.Error("Error processing metrics", zap.Any("gauges", gauges), zap.Any("counters", counters), zap.Error(err))
+		mh.writeJSONError(w, "processing metricы failed", http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+
+}
+
 func (mh *MetricHandler) handleSaveGaugeJSON(w http.ResponseWriter, req models.Metrics) {
 	if req.Value == nil {
 		mh.logger.Error("missing 'value' for gauge metric %s", req.ID)

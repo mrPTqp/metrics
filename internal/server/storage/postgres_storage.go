@@ -3,6 +3,8 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -126,19 +128,73 @@ func (ps *PostgresStorage) ListCounters() (map[string]int64, error) {
 }
 
 func (ps *PostgresStorage) SaveAllMetrics(gauges map[string]float64, counters map[string]int64) error {
+	tx, err := ps.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	gaugeNames := make([]string, 0, len(gauges))
+	gaugeValues := make([]float64, 0, len(gauges))
 	for name, value := range gauges {
-		if err := ps.SaveGauge(name, &value); err != nil {
+		gaugeNames = append(gaugeNames, name)
+		gaugeValues = append(gaugeValues, value)
+	}
+
+	for i := 0; i < len(gaugeNames); i += 100 {
+		end := i + 100
+		if end > len(gaugeNames) {
+			end = len(gaugeNames)
+		}
+
+		var parts []string
+		args := make([]any, 0, (end-i)*2)
+		for j := i; j < end; j++ {
+			args = append(args, gaugeNames[j], gaugeValues[j])
+			parts = append(parts, fmt.Sprintf("($%d, $%d)", len(args)-1, len(args)))
+		}
+
+		query := `INSERT INTO gauges (name, value) VALUES ` +
+			strings.Join(parts, ", ") +
+			` ON CONFLICT (name) DO UPDATE SET value = EXCLUDED.value`
+
+		_, err = tx.Exec(query, args...)
+		if err != nil {
 			return err
 		}
 	}
 
+	counterNames := make([]string, 0, len(counters))
+	counterValues := make([]int64, 0, len(counters))
 	for name, value := range counters {
-		if err := ps.SaveCounter(name, &value); err != nil {
+		counterNames = append(counterNames, name)
+		counterValues = append(counterValues, value)
+	}
+
+	for i := 0; i < len(counterNames); i += 100 {
+		end := i + 100
+		if end > len(counterNames) {
+			end = len(counterNames)
+		}
+
+		var parts []string
+		args := make([]any, 0, (end-i)*2)
+		for j := i; j < end; j++ {
+			args = append(args, counterNames[j], counterValues[j])
+			parts = append(parts, fmt.Sprintf("($%d, $%d)", len(args)-1, len(args)))
+		}
+
+		query := `INSERT INTO counters (name, value) VALUES ` +
+			strings.Join(parts, ", ") +
+			` ON CONFLICT (name) DO UPDATE SET value = counters.value + EXCLUDED.value`
+
+		_, err = tx.Exec(query, args...)
+		if err != nil {
 			return err
 		}
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 func (ps *PostgresStorage) CheckStorageAvailability() bool {

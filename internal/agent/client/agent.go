@@ -7,7 +7,6 @@ import (
 	"log"
 	"math/rand/v2"
 	"net/http"
-	"runtime"
 	"strconv"
 	"time"
 
@@ -27,18 +26,19 @@ func NewMetricsAgent(client *http.Client) *MetricsAgent {
 func (mh *MetricsAgent) StartMetricsAgent(address string, reportInterval, poolInterval int) {
 	log.Printf("agent will send requests to %s", address)
 
-	var metrics map[string]float64
 	var poolCounter int64 = 0
 	var lastReportTime = time.Now()
 	for {
-		metrics = collectMetrics()
+		gauges := CollectMetrics()
+		gauges["RandomValue"] = rand.Float64()
+		counters := make(map[string]int64)
 		poolCounter++
-		metrics["RandomValue"] = rand.Float64()
+		counters["PollCount"] = poolCounter
 
 		currentTime := time.Now()
 		if currentTime.Sub(lastReportTime) >= time.Duration(reportInterval)*time.Second {
 			var errorCounter = 0
-			err := sendMetrics(metrics, mh.client, poolCounter, address)
+			err := sendMetrics(gauges, counters, mh.client, address)
 			if err != nil {
 				errorCounter++
 				log.Printf("[ERROR] %s", err)
@@ -51,32 +51,33 @@ func (mh *MetricsAgent) StartMetricsAgent(address string, reportInterval, poolIn
 	}
 }
 
-func sendMetrics(metrics map[string]float64, client *http.Client, poolCounter int64, address string) error {
-	for mName, mValue := range metrics {
+func sendMetrics(gauges map[string]float64, counters map[string]int64, client *http.Client, address string) error {
+	if len(gauges) == 0 && len(counters) == 0 {
+		return nil
+	}
+
+	g := make([]models.Metrics, 0, len(gauges))
+	for name, value := range gauges {
 		req := models.Metrics{
-			ID:    mName,
+			ID:    name,
 			MType: "gauge",
-			Value: &mValue,
+			Value: &value,
 		}
-		err := sendMetric(*client, "http://"+address+"/update", req)
-		if err != nil {
-			return err
-		}
+		g = append(g, req)
 	}
 
-	req := models.Metrics{
-		ID:    "PollCount",
-		MType: "counter",
-		Delta: &poolCounter,
+	c := make([]models.Metrics, 0, len(counters))
+	for name, delta := range counters {
+		req := models.Metrics{
+			ID:    name,
+			MType: "counter",
+			Delta: &delta,
+		}
+		c = append(c, req)
 	}
-	err := sendMetric(*client, "http://"+address+"/update", req)
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
-func sendMetric(client http.Client, url string, req models.Metrics) error {
+	req := append(g, c...)
+
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
 		return err
@@ -86,6 +87,8 @@ func sendMetric(client http.Client, url string, req models.Metrics) error {
 	if err != nil {
 		return err
 	}
+
+	url := "http://" + address + "/updates"
 
 	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(compressedBody))
 	if err != nil {
@@ -103,41 +106,6 @@ func sendMetric(client http.Client, url string, req models.Metrics) error {
 	if resp.StatusCode != http.StatusOK {
 		return errors.New("[ERROR] HTTP status " + strconv.Itoa(resp.StatusCode))
 	}
+
 	return nil
-}
-
-
-func collectMetrics() map[string]float64 {
-	var memStats runtime.MemStats
-	runtime.ReadMemStats(&memStats)
-
-	metrics := make(map[string]float64)
-	metrics["GCCPUFraction"] = memStats.GCCPUFraction
-	metrics["GCSys"] = float64(memStats.GCSys)
-	metrics["HeapAlloc"] = float64(memStats.HeapAlloc)
-	metrics["HeapIdle"] = float64(memStats.HeapIdle)
-	metrics["HeapInuse"] = float64(memStats.HeapInuse)
-	metrics["HeapObjects"] = float64(memStats.HeapObjects)
-	metrics["HeapReleased"] = float64(memStats.HeapReleased)
-	metrics["HeapSys"] = float64(memStats.HeapSys)
-	metrics["LastGC"] = float64(memStats.LastGC)
-	metrics["Lookups"] = float64(memStats.Lookups)
-	metrics["MCacheInuse"] = float64(memStats.MCacheInuse)
-	metrics["MCacheSys"] = float64(memStats.MCacheSys)
-	metrics["MSpanInuse"] = float64(memStats.MSpanInuse)
-	metrics["MSpanSys"] = float64(memStats.MSpanSys)
-	metrics["Mallocs"] = float64(memStats.Mallocs)
-	metrics["NextGC"] = float64(memStats.NextGC)
-	metrics["NumForcedGC"] = float64(memStats.NumForcedGC)
-	metrics["NumGC"] = float64(memStats.NumGC)
-	metrics["OtherSys"] = float64(memStats.OtherSys)
-	metrics["PauseTotalNs"] = float64(memStats.PauseTotalNs)
-	metrics["StackInuse"] = float64(memStats.StackInuse)
-	metrics["StackSys"] = float64(memStats.StackSys)
-	metrics["Sys"] = float64(memStats.Sys)
-	metrics["TotalAlloc"] = float64(memStats.TotalAlloc)
-	metrics["Alloc"] = float64(memStats.Alloc)
-	metrics["BuckHashSys"] = float64(memStats.BuckHashSys)
-	metrics["Frees"] = float64(memStats.Frees)
-	return metrics
 }
