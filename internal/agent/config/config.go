@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"github.com/mrPTqp/metrics/internal/models"
@@ -13,8 +13,8 @@ type Config struct {
 func LoadConfig() *Config {
 	config := Config{}
 
-	flags := parseFlags()
-	envs := parseEnvs()
+	flags := ParseFlags()
+	envs := ParseEnvs()
 
 	na := models.NetAddress{}
 	address := "localhost:8080"

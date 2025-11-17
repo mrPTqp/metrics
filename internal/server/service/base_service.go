@@ -3,7 +3,7 @@ package service
 import (
 	"go.uber.org/zap"
 
-	"github.com/mrPTqp/metrics/internal/repository"
+	"github.com/mrPTqp/metrics/internal/server/repository"
 )
 
 type BaseMetricService struct {

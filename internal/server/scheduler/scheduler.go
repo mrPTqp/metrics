@@ -3,7 +3,7 @@ package scheduler
 import (
 	"time"
 
-	"github.com/mrPTqp/metrics/internal/backup"
+	"github.com/mrPTqp/metrics/internal/server/backup"
 
 	"go.uber.org/zap"
 )

@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/mrPTqp/metrics/internal/service"
+	"github.com/mrPTqp/metrics/internal/server/service"
 	"go.uber.org/zap"
 )
 

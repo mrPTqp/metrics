@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"os"
@@ -11,7 +11,7 @@ type Envs struct {
 	PoolInterval   int
 }
 
-func parseEnvs() *Envs {
+func ParseEnvs() *Envs {
 	var address string
 	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
 		address = envAddr

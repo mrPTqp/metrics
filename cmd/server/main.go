@@ -8,35 +8,33 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"go.uber.org/zap"
 
-	"github.com/mrPTqp/metrics/internal/backup"
-	"github.com/mrPTqp/metrics/internal/handler"
 	"github.com/mrPTqp/metrics/internal/logger"
-	"github.com/mrPTqp/metrics/internal/middleware"
-	"github.com/mrPTqp/metrics/internal/repository"
-	"github.com/mrPTqp/metrics/internal/scheduler"
-	"github.com/mrPTqp/metrics/internal/service"
-	"github.com/mrPTqp/metrics/internal/storage"
+	"github.com/mrPTqp/metrics/internal/server/backup"
+	"github.com/mrPTqp/metrics/internal/server/config"
+	"github.com/mrPTqp/metrics/internal/server/handler"
+	"github.com/mrPTqp/metrics/internal/server/metrics"
+	"github.com/mrPTqp/metrics/internal/server/middleware"
+	"github.com/mrPTqp/metrics/internal/server/repository"
+	"github.com/mrPTqp/metrics/internal/server/scheduler"
+	"github.com/mrPTqp/metrics/internal/server/service"
+	"github.com/mrPTqp/metrics/internal/server/storage"
+	"github.com/mrPTqp/metrics/internal/server/storage/migrations"
 )
 
 func main() {
 	sugar := logger.NewSugarLogger()
 
-	cfg := LoadConfig()
-	sugar.Infow("configuration loaded", "config", cfg)
+	cfg := config.LoadConfig()
+	sugar.Infow("configuration created", "config", cfg)
 
 	var mr repository.MetricRepository
 	if cfg.DatabaseDsn != "" {
 		var err error
-
 		sugar.Info("Applying database migrations...")
-		if err = runMigrations(cfg.DatabaseDsn, sugar); err != nil {
-			sugar.Panicf("Failed to run migrations: %v", err)
+		if err = migrations.RunMigrations(cfg.DatabaseDsn, sugar); err != nil {
+			sugar.Panicf("Migration failed: %v", err)
 		}
 		sugar.Info("Migrations applied successfully or no changes")
 
@@ -81,7 +79,7 @@ func main() {
 		middleware.LoggingMiddleware,
 		middleware.GzipMiddleware,
 	}
-	srv := startMetricsServer(mh, mws, cfg, sugar)
+	srv := metrics.StartMetricsServer(mh, mws, cfg, sugar)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
@@ -111,77 +109,4 @@ func main() {
 			sugar.Info("storage connection closed")
 		}
 	}
-}
-
-func runMigrations(dsn string, sugar *zap.SugaredLogger) error {
-	m, err := migrate.New("file://migrations", dsn)
-	if err != nil {
-		return err
-	}
-	defer m.Close()
-
-	current, _, _ := m.Version()
-	sugar.Infof("Current migration version: %d", current)
-
-	if err := m.Up(); err != nil {
-		if err == migrate.ErrNoChange {
-			sugar.Info("No migrations to apply")
-			return nil
-		}
-
-		sugar.Errorf("Migration error: %v. Attempting rollback...", err)
-		if rollbackErr := m.Down(); rollbackErr != nil {
-			sugar.Errorf("Rollback after migration failure failed: %v", rollbackErr)
-		} else {
-			sugar.Info("Rollback after migration failure succeeded")
-		}
-
-		return err
-	}
-
-	newVersion, _, _ := m.Version()
-	if newVersion > current {
-		sugar.Infof("Successfully migrated to version %d", newVersion)
-	} else {
-		sugar.Info("No new migrations found")
-	}
-
-	return nil
-}
-
-func startMetricsServer(mh *handler.MetricHandler, mws []func(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc, cfg *Config, sugar *zap.SugaredLogger) *http.Server {
-	r := chi.NewRouter()
-	r.Get("/", wrap(mh.CollectMetricsHandler, sugar, mws...))
-	if cfg.DatabaseDsn != "" {
-		r.Get("/ping", wrap(mh.DBHealthCheckHandler, sugar, mws...))
-	}
-	r.Route("/update", func(r chi.Router) {
-		r.Post("/", wrap(mh.SaveMetricHandlerJSON, sugar, mws...))
-		r.Post("/{type}/{name}/{value}", wrap(mh.SaveMetricHandler, sugar, mws...))
-	})
-	r.Route("/value", func(r chi.Router) {
-		r.Post("/", wrap(mh.ValueMetricHandlerJSON, sugar, mws...))
-		r.Get("/{type}/{name}", wrap(mh.GetMetricHandler, sugar, mws...))
-	})
-
-	srv := &http.Server{
-		Addr:    cfg.Address.String(),
-		Handler: r,
-	}
-
-	go func() {
-		sugar.Infof("Server is running on %s", cfg.Address.String())
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			sugar.Fatalf("Server failed: %v", err)
-		}
-	}()
-
-	return srv
-}
-
-func wrap(h http.HandlerFunc, logger *zap.SugaredLogger, mwFuncs ...func(http.HandlerFunc, *zap.SugaredLogger) http.HandlerFunc) http.HandlerFunc {
-	for i := len(mwFuncs) - 1; i >= 0; i-- {
-		h = mwFuncs[i](h, logger)
-	}
-	return h
 }

@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"flag"
@@ -12,7 +12,7 @@ type Flags struct {
 	DatabaseDsn     *string
 }
 
-func parseFlags() *Flags {
+func ParseFlags() *Flags {
 	var addr string
 	var storeInterval int
 	var fileStoragePath string

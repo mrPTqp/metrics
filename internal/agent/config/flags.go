@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"flag"
@@ -10,7 +10,7 @@ type Flags struct {
 	PoolInterval   int
 }
 
-func parseFlags() *Flags {
+func ParseFlags() *Flags {
 	addr := flag.String("a", "", "address and port to run server")
 	reportInterval := flag.Int("r", 10, "report interval in seconds")
 	poolInterval := flag.Int( "p", 2, "pool interval in seconds")

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"io"
 
-	"github.com/mrPTqp/metrics/internal/service"
-	"github.com/mrPTqp/metrics/internal/storage"
+	"github.com/mrPTqp/metrics/internal/server/service"
+	"github.com/mrPTqp/metrics/internal/server/storage"
 	"go.uber.org/zap"
 )
 

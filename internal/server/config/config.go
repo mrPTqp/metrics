@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"os"
@@ -17,8 +17,8 @@ type Config struct {
 }
 
 func LoadConfig() *Config {
-	flags := parseFlags()
-	envs := parseEnvs()
+	envs := ParseEnvs()
+	flags := ParseFlags()
 
 	na := models.NetAddress{}
 	address := "localhost:8080"

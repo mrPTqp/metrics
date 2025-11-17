@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"os"
@@ -13,7 +13,7 @@ type Envs struct {
 	DatabaseDsn     *string
 }
 
-func parseEnvs() *Envs {
+func ParseEnvs() *Envs {
 	var address string
 	var storeInterval int
 	var fileStoragePath string
