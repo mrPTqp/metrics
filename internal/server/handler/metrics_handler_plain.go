@@ -141,3 +141,15 @@ func (mh *MetricHandler) writeTextResponse(w http.ResponseWriter, body string, s
 		_, _ = w.Write([]byte(body))
 	}
 }
+
+func (mh *MetricHandler) DBHealthCheckHandler(w http.ResponseWriter, r *http.Request) {
+    if mh.service == nil {
+        http.Error(w, "service not available", http.StatusInternalServerError)
+        return
+    }
+    if !mh.service.Ping() {
+        http.Error(w, "database unreachable", http.StatusInternalServerError)
+        return
+    }
+    w.WriteHeader(http.StatusOK)
+}

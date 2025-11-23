@@ -130,7 +130,7 @@ func TestMetricsAgent_SendMetrics(t *testing.T) {
 			client := &http.Client{}
 			agent := NewMetricsAgent(client)
 
-			err := agent.sendMetrics(tt.gauges, tt.counters, client, serverURL)
+			err := agent.sendMetrics(tt.gauges, tt.counters, serverURL)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("sendMetrics() error = %v, wantErr %v", err, tt.wantErr)
@@ -242,7 +242,7 @@ func TestMetricsAgent_SendMetrics_RequestStructure(t *testing.T) {
 			client := &http.Client{}
 			agent := NewMetricsAgent(client)
 
-			err := agent.sendMetrics(tt.gauges, tt.counters, client, server.URL[len("http://"):])
+			err := agent.sendMetrics(tt.gauges, tt.counters, server.URL[len("http://"):])
 			if err != nil {
 				t.Fatalf("sendMetrics() unexpected error: %v", err)
 			}

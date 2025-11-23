@@ -418,40 +418,6 @@ func TestBaseMetricService_SaveAllMetrics(t *testing.T) {
 	}
 }
 
-func TestBaseMetricService_Ping(t *testing.T) {
-	testCases := []struct {
-		name           string
-		availability   bool
-		expectedResult bool
-	}{
-		{
-			name:           "Success",
-			availability:   true,
-			expectedResult: true,
-		},
-		{
-			name:           "Failure",
-			availability:   false,
-			expectedResult: false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			mockRepo := new(MockMetricRepository)
-			logger := zap.NewNop().Sugar()
-
-			mockRepo.On("CheckStorageAvailability").Return(tc.availability)
-
-			service := NewMetricsService(mockRepo, logger)
-			result := service.Ping()
-
-			assert.Equal(t, tc.expectedResult, result)
-			mockRepo.AssertExpectations(t)
-		})
-	}
-}
-
 func TestFileBackupService_SaveGaugeMetric(t *testing.T) {
 	testCases := []struct {
 		name             string

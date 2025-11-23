@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/mrPTqp/metrics/internal/models"
+	"github.com/mrPTqp/metrics/internal/retry"
 )
 
 type MetricsAgent struct {
@@ -40,7 +42,7 @@ func (mh *MetricsAgent) StartMetricsAgent(address string, reportInterval, poolIn
 		currentTime := time.Now()
 		if currentTime.Sub(lastReportTime) >= time.Duration(reportInterval)*time.Second {
 			var errorCounter = 0
-			err := mh.sendMetrics(gauges, counters, mh.c, address)
+			err := mh.sendMetrics(gauges, counters, address)
 			if err != nil {
 				errorCounter++
 				log.Printf("[ERROR] %s", err)
@@ -53,7 +55,7 @@ func (mh *MetricsAgent) StartMetricsAgent(address string, reportInterval, poolIn
 	}
 }
 
-func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[string]int64, client *http.Client, address string) error {
+func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[string]int64, address string) error {
 	if len(gauges) == 0 && len(counters) == 0 {
 		return nil
 	}
@@ -99,45 +101,29 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Content-Encoding", "gzip")
 
-	resp, err := mh.doWithRetry(httpReq)
+	var resp *http.Response
+	err = retry.DoWithRetry(
+		context.Background(),
+		mh.ec,
+		func() error {
+			r, err := mh.c.Do(httpReq)
+			if err != nil {
+				return err
+			}
+			defer r.Body.Close()
+			resp = r
+			return nil
+		},
+		3,
+		1*time.Second,
+	)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return errors.New("[ERROR] HTTP status " + strconv.Itoa(resp.StatusCode))
 	}
 
 	return nil
-}
-
-func (mh *MetricsAgent) doWithRetry(req *http.Request) (*http.Response, error) {
-	var resp *http.Response
-	var err error
-	var maxRetries = 3
-	var initialDelay = 1 * time.Second
-
-	for i := 0; i <= maxRetries; i++ {
-		resp, err = mh.c.Do(req)
-
-		if err == nil {
-			return resp, nil
-		}
-
-		classification := mh.ec.Classify(err)
-
-		if classification == NonRetriable {
-			return nil, err
-		}
-
-		if i == maxRetries {
-			break
-		}
-
-		time.Sleep(initialDelay)
-		initialDelay += 2
-	}
-
-	return nil, err
 }

@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
+
+	"github.com/mrPTqp/metrics/internal/retry"
 )
 
 var ErrMetricNotFound = errors.New("metric not found")
@@ -34,30 +36,14 @@ func NewPostgresStorage(databaseDsn string, logger *zap.SugaredLogger) (*Postgre
 	}, nil
 }
 
-func (ps *PostgresStorage) withRetry(ctx context.Context, operation func() error) error {
-	const maxRetries = 3
-	delay := 1 * time.Second
-
-	var err error
-	for i := 0; i <= maxRetries; i++ {
-		err = operation()
-		if err == nil {
-			return nil
-		}
-
-		if ps.classifier.Classify(err) == NonRetriable {
-			return err
-		}
-
-		if i == maxRetries {
-			return err
-		}
-
-		time.Sleep(delay)
-		delay += 2
-	}
-
-	return err
+func (ps *PostgresStorage) doWithRetry(ctx context.Context, operation func() error) error {
+	return retry.DoWithRetry(
+		ctx,
+		ps.classifier,
+		operation,
+		3,
+		1*time.Second,
+	)
 }
 
 func extractPGCode(err error) string {
@@ -70,7 +56,7 @@ func extractPGCode(err error) string {
 
 func (ps *PostgresStorage) SaveGauge(name string, value *float64) error {
 	ctx := context.Background()
-	return ps.withRetry(ctx, func() error {
+	return ps.doWithRetry(ctx, func() error {
 		_, err := ps.DB.ExecContext(ctx, `
 			INSERT INTO gauges (name, value) 
 			VALUES ($1, $2) 
@@ -83,7 +69,7 @@ func (ps *PostgresStorage) SaveGauge(name string, value *float64) error {
 
 func (ps *PostgresStorage) SaveCounter(name string, value *int64) error {
 	ctx := context.Background()
-	return ps.withRetry(ctx, func() error {
+	return ps.doWithRetry(ctx, func() error {
 		_, err := ps.DB.ExecContext(ctx, `
 			INSERT INTO counters (name, value) 
 			VALUES ($1, $2) 
@@ -97,21 +83,19 @@ func (ps *PostgresStorage) SaveCounter(name string, value *int64) error {
 func (ps *PostgresStorage) GetGauge(name string) (float64, error) {
 	ctx := context.Background()
 	var value sql.NullFloat64
-	err := ps.withRetry(ctx, func() error {
+	err := ps.doWithRetry(ctx, func() error {
 		return ps.DB.QueryRowContext(ctx,
-			`SELECT value 
-			FROM gauges 
-			WHERE name = $1`,
+			`SELECT value FROM gauges WHERE name = $1`,
 			name).Scan(&value)
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) || !value.Valid {
-			return 0.0, ErrMetricNotFound
+			return 0, ErrMetricNotFound
 		}
-		return 0.0, err
+		return 0, err
 	}
 	if !value.Valid {
-		return 0.0, ErrMetricNotFound
+		return 0, ErrMetricNotFound
 	}
 	return value.Float64, nil
 }
@@ -119,11 +103,9 @@ func (ps *PostgresStorage) GetGauge(name string) (float64, error) {
 func (ps *PostgresStorage) GetCounter(name string) (int64, error) {
 	ctx := context.Background()
 	var value sql.NullInt64
-	err := ps.withRetry(ctx, func() error {
+	err := ps.doWithRetry(ctx, func() error {
 		return ps.DB.QueryRowContext(ctx,
-			`SELECT value 
-			FROM counters 
-			WHERE name = $1`,
+			`SELECT value FROM counters WHERE name = $1`,
 			name).Scan(&value)
 	})
 	if err != nil {
@@ -157,7 +139,6 @@ func (ps *PostgresStorage) ListGauges() (map[string]float64, error) {
 			result[name] = value.Float64
 		}
 	}
-
 	return result, rows.Err()
 }
 
@@ -180,13 +161,12 @@ func (ps *PostgresStorage) ListCounters() (map[string]int64, error) {
 			result[name] = value.Int64
 		}
 	}
-
 	return result, rows.Err()
 }
 
 func (ps *PostgresStorage) SaveAllMetrics(gauges map[string]float64, counters map[string]int64) error {
 	ctx := context.Background()
-	return ps.withRetry(ctx, func() error {
+	return ps.doWithRetry(ctx, func() error {
 		tx, err := ps.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return err
@@ -228,7 +208,7 @@ func (ps *PostgresStorage) CheckConnection() error {
 }
 
 func (ps *PostgresStorage) CheckStorageAvailability() bool {
-	err := ps.withRetry(context.Background(), ps.CheckConnection)
+	err := ps.doWithRetry(context.Background(), ps.CheckConnection)
 	return err == nil
 }
 
@@ -240,6 +220,5 @@ func (ps *PostgresStorage) Close() error {
 		}
 	}
 	ps.logger.Info("Postgres storage closed")
-
 	return nil
 }
