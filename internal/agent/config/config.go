@@ -8,41 +8,49 @@ type Config struct {
 	Address        models.NetAddress
 	ReportInterval int
 	PoolInterval   int
+	SecretKey      *string
 }
 
 func LoadConfig() *Config {
-	config := Config{}
-
 	flags := ParseFlags()
 	envs := ParseEnvs()
 
 	na := models.NetAddress{}
 	address := "localhost:8080"
-	if envs.Address != "" {
-		address = envs.Address
-	} else if flags.Address != "" {
-		address = flags.Address
+	if envs.Address != nil && *envs.Address != "" {
+		address = *envs.Address
+	} else if flags.Address != nil && *flags.Address != "" {
+		address = *flags.Address
 	}
 	if err := na.SetAddress(address); err != nil {
 		panic("invalid address: " + address + " error: " + err.Error())
 	}
-	config.Address = na
 
-	if envs.ReportInterval != 0 {
-		config.ReportInterval = envs.ReportInterval
-	} else if flags.ReportInterval != 0 {
-		config.ReportInterval = flags.ReportInterval
-	} else {
-		config.ReportInterval = 10
+	reportInterval := 10
+	if envs.ReportInterval != nil && *envs.ReportInterval != 0 {
+		reportInterval = *envs.ReportInterval
+	} else if flags.ReportInterval != nil {
+		reportInterval = *flags.ReportInterval
 	}
 
-	if envs.PoolInterval != 0 {
-		config.PoolInterval = envs.PoolInterval
-	} else if flags.PoolInterval != 0 {
-		config.PoolInterval = flags.PoolInterval
-	} else {
-		config.PoolInterval = 2
+	poolInterval := 2
+	if envs.PoolInterval != nil && *envs.PoolInterval != 0 {
+		poolInterval = *envs.PoolInterval
+	} else if flags.ReportInterval != nil {
+		poolInterval = *flags.PoolInterval
 	}
 
-	return &config
+	var secretKey string
+	if envs.SecretKey != nil && *envs.SecretKey != "" {
+		secretKey = *envs.SecretKey
+	} else if flags.SecretKey != nil && *flags.SecretKey != "" {
+		secretKey = *flags.SecretKey
+	}
+
+	return &Config{
+		Address:        na,
+		ReportInterval: reportInterval,
+		PoolInterval:   poolInterval,
+		SecretKey:      &secretKey,
+	}
 }

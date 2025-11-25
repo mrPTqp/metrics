@@ -30,15 +30,15 @@ func main() {
 	sugar.Infow("configuration created", "config", cfg)
 
 	var mr repository.MetricRepository
-	if cfg.DatabaseDsn != "" {
+	if cfg.DatabaseDsn != nil && *cfg.DatabaseDsn != "" {
 		var err error
 		sugar.Info("Applying database migrations...")
-		if err = migrations.RunMigrations(cfg.DatabaseDsn, sugar); err != nil {
+		if err = migrations.RunMigrations(*cfg.DatabaseDsn, sugar); err != nil {
 			sugar.Panicf("Migration failed: %v", err)
 		}
 		sugar.Info("Migrations applied successfully or no changes")
 
-		mr, err = storage.NewPostgresStorage(cfg.DatabaseDsn, sugar)
+		mr, err = storage.NewPostgresStorage(*cfg.DatabaseDsn, sugar)
 		if err != nil {
 			sugar.Panic("init postgres error", err)
 		}

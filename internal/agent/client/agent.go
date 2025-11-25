@@ -11,24 +11,32 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/mrPTqp/metrics/internal/agent/config"
 	"github.com/mrPTqp/metrics/internal/models"
 	"github.com/mrPTqp/metrics/internal/retry"
+	"github.com/mrPTqp/metrics/internal/signer"
 )
 
 type MetricsAgent struct {
-	c  *http.Client
-	ec *HTTPErrorClassifier
+	c   *http.Client
+	ec  *HTTPErrorClassifier
+	cfg *config.Config
 }
 
-func NewMetricsAgent(client *http.Client) *MetricsAgent {
+func NewMetricsAgent(client *http.Client, cfg *config.Config) *MetricsAgent {
 	return &MetricsAgent{
-		c:  client,
-		ec: NewHTTPErrorClassifier(),
+		c:   client,
+		ec:  NewHTTPErrorClassifier(),
+		cfg: cfg,
 	}
 }
 
-func (mh *MetricsAgent) StartMetricsAgent(address string, reportInterval, poolInterval int) {
-	log.Printf("agent will send requests to %s", address)
+func (mh *MetricsAgent) StartMetricsAgent() {
+	address := mh.cfg.Address
+	reportInterval := mh.cfg.ReportInterval
+	poolInterval := mh.cfg.PoolInterval
+
+	log.Printf("agent will send requests to %s", address.String())
 
 	var poolCounter int64 = 0
 	var lastReportTime = time.Now()
@@ -42,7 +50,7 @@ func (mh *MetricsAgent) StartMetricsAgent(address string, reportInterval, poolIn
 		currentTime := time.Now()
 		if currentTime.Sub(lastReportTime) >= time.Duration(reportInterval)*time.Second {
 			var errorCounter = 0
-			err := mh.sendMetrics(gauges, counters, address)
+			err := mh.sendMetrics(gauges, counters, address.String())
 			if err != nil {
 				errorCounter++
 				log.Printf("[ERROR] %s", err)
@@ -100,6 +108,13 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Content-Encoding", "gzip")
+	if mh.cfg.SecretKey != nil && *mh.cfg.SecretKey != "" {
+		sign, err := sign.Sign(compressedBody, mh.cfg.SecretKey)
+		if err != nil {
+			return err
+		}
+		httpReq.Header.Set("HashSHA256", *sign)
+	}
 
 	var resp *http.Response
 	err = retry.DoWithRetry(

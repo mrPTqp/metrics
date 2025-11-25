@@ -11,6 +11,7 @@ type Envs struct {
 	FileStoragePath *string
 	Restore         *bool
 	DatabaseDsn     *string
+	SecretKey       *string
 }
 
 func ParseEnvs() *Envs {
@@ -19,6 +20,7 @@ func ParseEnvs() *Envs {
 	var fileStoragePath string
 	var restore bool
 	var databaseDsn string
+	var secretKey string
 
 	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
 		address = envAddr
@@ -48,6 +50,9 @@ func ParseEnvs() *Envs {
 		databaseDsn = envDatabaseDsn
 	}
 
+	if envSecretKey := os.Getenv("SECRET_KEY"); envSecretKey != "" {
+		secretKey = envSecretKey
+	}
 
 	return &Envs{
 		Address:         &address,
@@ -55,5 +60,6 @@ func ParseEnvs() *Envs {
 		FileStoragePath: &fileStoragePath,
 		Restore:         &restore,
 		DatabaseDsn:     &databaseDsn,
+		SecretKey:       &secretKey,
 	}
 }

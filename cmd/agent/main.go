@@ -21,7 +21,7 @@ func main() {
 		},
 	}
 
-	a := agent.NewMetricsAgent(client)
+	a := agent.NewMetricsAgent(client, config)
 	sugar.Infof("agent will start with params reportInterval: %d, poolInterval: %d", config.ReportInterval, config.PoolInterval)
-	a.StartMetricsAgent(config.Address.String(), config.ReportInterval, config.PoolInterval)
+	a.StartMetricsAgent()
 }

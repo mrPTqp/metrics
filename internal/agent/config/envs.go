@@ -6,36 +6,46 @@ import (
 )
 
 type Envs struct {
-	Address        string
-	ReportInterval int
-	PoolInterval   int
+	Address        *string
+	ReportInterval *int
+	PoolInterval   *int
+	SecretKey      *string
 }
 
 func ParseEnvs() *Envs {
 	var address string
+	var reportInterval int
+	var poolInterval int
+	var secretKey string
+
 	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
 		address = envAddr
 	}
-	var reportInterval int
+
 	if envReportIntervalStr := os.Getenv("REPORT_INTERVAL"); envReportIntervalStr != "" {
-		envReportInterval, err := strconv.Atoi(envReportIntervalStr)
-		if err != nil {
-			panic("wrong REPORT_INTERVAL type value: " + envReportIntervalStr)
+		if envReportInterval, err := strconv.Atoi(envReportIntervalStr); err != nil {
+			panic("wrong STORE_INTERVAL type value: " + envReportIntervalStr)
+		} else {
+			reportInterval = envReportInterval
 		}
-		reportInterval = envReportInterval
 	}
-	var poolInterval int
+
 	if envPoolIntervalStr := os.Getenv("POLL_INTERVAL"); envPoolIntervalStr != "" {
-		envPoolInterval, err := strconv.Atoi(envPoolIntervalStr)
-		if err != nil {
-			panic("wrong POLL_INTERVAL type value: " + envPoolIntervalStr)
+		if poolInterval, err := strconv.Atoi(envPoolIntervalStr); err != nil {
+			panic("wrong STORE_INTERVAL type value: " + envPoolIntervalStr)
+		} else {
+			reportInterval = poolInterval
 		}
-		poolInterval = envPoolInterval
+	}
+
+	if envSecretKey := os.Getenv("SECRET_KEY"); envSecretKey != "" {
+		secretKey = envSecretKey
 	}
 
 	return &Envs{
-		Address:        address,
-		ReportInterval: reportInterval,
-		PoolInterval:   poolInterval,
+		Address:        &address,
+		ReportInterval: &reportInterval,
+		PoolInterval:   &poolInterval,
+		SecretKey:      &secretKey,
 	}
 }

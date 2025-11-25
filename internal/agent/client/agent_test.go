@@ -1,4 +1,3 @@
-// internal/agent/client/agent_test.go
 package agent
 
 import (
@@ -8,7 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/mrPTqp/metrics/internal/agent/config"
 	"github.com/mrPTqp/metrics/internal/models"
+	"github.com/mrPTqp/metrics/internal/signer"
 )
 
 func TestMetricsAgent_SendMetrics(t *testing.T) {
@@ -20,6 +21,7 @@ func TestMetricsAgent_SendMetrics(t *testing.T) {
 		serverResponse string
 		wantErr        bool
 		expectRequest  bool
+		secretKey      string
 	}{
 		{
 			name: "successful send with both gauges and counters",
@@ -34,6 +36,7 @@ func TestMetricsAgent_SendMetrics(t *testing.T) {
 			serverResponse: `{"status":"ok"}`,
 			wantErr:        false,
 			expectRequest:  true,
+			secretKey:      "",
 		},
 		{
 			name:           "empty metrics - no request should be sent",
@@ -43,6 +46,7 @@ func TestMetricsAgent_SendMetrics(t *testing.T) {
 			serverResponse: "",
 			wantErr:        false,
 			expectRequest:  false,
+			secretKey:      "",
 		},
 		{
 			name: "only gauges",
@@ -54,6 +58,7 @@ func TestMetricsAgent_SendMetrics(t *testing.T) {
 			serverStatus:  http.StatusOK,
 			wantErr:       false,
 			expectRequest: true,
+			secretKey:     "",
 		},
 		{
 			name:   "only counters",
@@ -65,6 +70,7 @@ func TestMetricsAgent_SendMetrics(t *testing.T) {
 			serverStatus:  http.StatusOK,
 			wantErr:       false,
 			expectRequest: true,
+			secretKey:     "",
 		},
 		{
 			name: "server returns 500 error",
@@ -78,6 +84,7 @@ func TestMetricsAgent_SendMetrics(t *testing.T) {
 			serverResponse: `{"error":"internal server error"}`,
 			wantErr:        true,
 			expectRequest:  true,
+			secretKey:      "",
 		},
 		{
 			name: "server returns 400 bad request",
@@ -91,6 +98,7 @@ func TestMetricsAgent_SendMetrics(t *testing.T) {
 			serverResponse: `{"error":"bad request"}`,
 			wantErr:        true,
 			expectRequest:  true,
+			secretKey:      "",
 		},
 	}
 
@@ -124,13 +132,25 @@ func TestMetricsAgent_SendMetrics(t *testing.T) {
 			}))
 			defer server.Close()
 
-			// Удаляем "http://"
-			serverURL := server.URL[len("http://"):]
+			var secretKey *string
+			if tt.secretKey != "" {
+				secretKey = &tt.secretKey
+			}
+
+			cfg := &config.Config{
+				Address: models.NetAddress{
+					Host: "http://localhost",
+					Port: 8888,
+				},
+				SecretKey:      secretKey,
+				ReportInterval: 10,
+				PoolInterval:   2,
+			}
 
 			client := &http.Client{}
-			agent := NewMetricsAgent(client)
+			agent := NewMetricsAgent(client, cfg)
 
-			err := agent.sendMetrics(tt.gauges, tt.counters, serverURL)
+			err := agent.sendMetrics(tt.gauges, tt.counters, server.URL[len("http://"):])
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("sendMetrics() error = %v, wantErr %v", err, tt.wantErr)
@@ -140,7 +160,7 @@ func TestMetricsAgent_SendMetrics(t *testing.T) {
 				t.Errorf("Request received = %v, expectRequest %v", requestReceived, tt.expectRequest)
 			}
 
-			// Проверяем тело и заголовки, только если запрос был отправлен и ожидается успешный статус
+			// Проверка только если запрос был отправлен и не ожидается ошибка
 			if requestReceived && tt.expectRequest && !tt.wantErr {
 				if contentType := requestHeaders.Get("Content-Type"); contentType != "application/json" {
 					t.Errorf("Content-Type header = %s, expected application/json", contentType)
@@ -239,8 +259,15 @@ func TestMetricsAgent_SendMetrics_RequestStructure(t *testing.T) {
 			}))
 			defer server.Close()
 
+			cfg := &config.Config{
+				Address: models.NetAddress{
+					Host: "http://localhost",
+					Port: 8888,
+				},
+			}
+
 			client := &http.Client{}
-			agent := NewMetricsAgent(client)
+			agent := NewMetricsAgent(client, cfg)
 
 			err := agent.sendMetrics(tt.gauges, tt.counters, server.URL[len("http://"):])
 			if err != nil {
@@ -277,5 +304,51 @@ func TestMetricsAgent_SendMetrics_RequestStructure(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestMetricsAgent_SendMetrics_WithSecretKey(t *testing.T) {
+	secretKey := "mysecret"
+	cfg := &config.Config{
+		Address: models.NetAddress{
+			Host: "http://localhost",
+			Port: 8888,
+		},
+		SecretKey: &secretKey,
+	}
+
+	client := &http.Client{}
+	agent := NewMetricsAgent(client, cfg)
+
+	var receivedHash string
+	var requestBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHash = r.Header.Get("HashSHA256")
+		body, _ := io.ReadAll(r.Body)
+		requestBody = body
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	gauges := map[string]float64{"TestGauge": 123.45}
+	counters := map[string]int64{"TestCounter": 1}
+
+	err := agent.sendMetrics(gauges, counters, server.URL[len("http://"):])
+	if err != nil {
+		t.Fatalf("sendMetrics failed: %v", err)
+	}
+
+	if receivedHash == "" {
+		t.Fatal("Expected HashSHA256 header, but it's missing")
+	}
+
+	expectedHash, err := sign.Sign(requestBody, &secretKey)
+	if err != nil {
+		t.Fatalf("Failed to compute expected hash: %v", err)
+	}
+
+	if receivedHash != *expectedHash {
+		t.Errorf("HashSHA256 mismatch:\nexpected: %s\ngot:      %s", *expectedHash, receivedHash)
 	}
 }
