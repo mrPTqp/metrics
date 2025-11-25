@@ -4,14 +4,15 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mrPTqp/metrics/internal/agent"
+	"github.com/mrPTqp/metrics/internal/agent/client"
+	"github.com/mrPTqp/metrics/internal/agent/config"
 	"github.com/mrPTqp/metrics/internal/logger"
 )
 
 func main() {
 	sugar := logger.NewSugarLogger()
 
-	config := LoadConfig()
+	config := config.LoadConfig()
 
 	client := &http.Client{
 		Timeout: time.Second * 30,

@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS idx_gauges_name;
+DROP TABLE IF EXISTS gauges; 
