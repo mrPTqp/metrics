@@ -14,7 +14,7 @@ type Config struct {
 	File             string
 	SyncBackupToFile bool
 	DatabaseDsn      *string
-	SecretKey        string
+	SecretKey        *string
 }
 
 func LoadConfig() *Config {
@@ -79,6 +79,6 @@ func LoadConfig() *Config {
 		File:             filepath.FromSlash(fileStoragePath + "events.log"),
 		SyncBackupToFile: syncBackupToFile,
 		DatabaseDsn:      &databaseDsn,
-		SecretKey:        secretKey,
+		SecretKey:        &secretKey,
 	}
 }

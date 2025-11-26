@@ -14,7 +14,6 @@ import (
 	"github.com/mrPTqp/metrics/internal/agent/config"
 	"github.com/mrPTqp/metrics/internal/models"
 	"github.com/mrPTqp/metrics/internal/retry"
-	"github.com/mrPTqp/metrics/internal/signer"
 )
 
 type MetricsAgent struct {
@@ -107,14 +106,7 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 		return err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Content-Encoding", "gzip")
-	if mh.cfg.SecretKey != nil && *mh.cfg.SecretKey != "" {
-		sign, err := sign.Sign(compressedBody, mh.cfg.SecretKey)
-		if err != nil {
-			return err
-		}
-		httpReq.Header.Set("HashSHA256", *sign)
-	}
+	httpReq.Header.Set("Content-Encoding", "gzip")	
 
 	var resp *http.Response
 	err = retry.DoWithRetry(

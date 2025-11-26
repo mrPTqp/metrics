@@ -9,7 +9,6 @@ import (
 
 	"github.com/mrPTqp/metrics/internal/agent/config"
 	"github.com/mrPTqp/metrics/internal/models"
-	"github.com/mrPTqp/metrics/internal/signer"
 )
 
 func TestMetricsAgent_SendMetrics(t *testing.T) {
@@ -304,51 +303,5 @@ func TestMetricsAgent_SendMetrics_RequestStructure(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func TestMetricsAgent_SendMetrics_WithSecretKey(t *testing.T) {
-	secretKey := "mysecret"
-	cfg := &config.Config{
-		Address: models.NetAddress{
-			Host: "http://localhost",
-			Port: 8888,
-		},
-		SecretKey: &secretKey,
-	}
-
-	client := &http.Client{}
-	agent := NewMetricsAgent(client, cfg)
-
-	var receivedHash string
-	var requestBody []byte
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		receivedHash = r.Header.Get("HashSHA256")
-		body, _ := io.ReadAll(r.Body)
-		requestBody = body
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	gauges := map[string]float64{"TestGauge": 123.45}
-	counters := map[string]int64{"TestCounter": 1}
-
-	err := agent.sendMetrics(gauges, counters, server.URL[len("http://"):])
-	if err != nil {
-		t.Fatalf("sendMetrics failed: %v", err)
-	}
-
-	if receivedHash == "" {
-		t.Fatal("Expected HashSHA256 header, but it's missing")
-	}
-
-	expectedHash, err := sign.Sign(requestBody, &secretKey)
-	if err != nil {
-		t.Fatalf("Failed to compute expected hash: %v", err)
-	}
-
-	if receivedHash != *expectedHash {
-		t.Errorf("HashSHA256 mismatch:\nexpected: %s\ngot:      %s", *expectedHash, receivedHash)
 	}
 }

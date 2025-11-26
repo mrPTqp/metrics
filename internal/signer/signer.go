@@ -1,9 +1,11 @@
-package sign
+package signer
 
 import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+
+	"go.uber.org/zap"
 )
 
 func Sign(content []byte, secretKey *string) (*string, error) {
@@ -23,10 +25,14 @@ func computeHMAC(content []byte, secretKey *string) (*string, error) {
 	return &hmac, nil
 }
 
-func Verify(content []byte, hmac *string, secretKey *string) bool {
+func Verify(content []byte, hmac *string, secretKey *string, logger *zap.SugaredLogger) bool {
 	if h, err := computeHMAC(content, secretKey); err != nil {
+		logger.Errorw("failed to compute HMAC", err)
 		return false
 	} else {
-		return hmac == h
+		if hmac != h {
+			logger.Infof("received sign does not equal expexted \n%s\n%s", *h, *hmac)
+		}
+		return *hmac == *h
 	}
 }
