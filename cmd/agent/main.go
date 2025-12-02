@@ -20,21 +20,8 @@ func main() {
 			DisableCompression: false,
 		},
 	}
-
-	if config.SecretKey != nil && *config.SecretKey != "" {
-		originalTransport := client.Transport
-		if originalTransport == nil {
-			originalTransport = http.DefaultTransport
-		}
-
-		client.Transport = &agent.SigningTransport{
-			RoundTripper: originalTransport,
-			SecretKey: *config.SecretKey,
-			Logger: sugar,
-		}
-	}
-
-	a := agent.NewMetricsAgent(client, config)
+	
+	a := agent.NewMetricsAgent(client, config, sugar)
 	sugar.Infof("agent will start with params reportInterval: %d, poolInterval: %d", config.ReportInterval, config.PoolInterval)
 	a.StartMetricsAgent()
 }

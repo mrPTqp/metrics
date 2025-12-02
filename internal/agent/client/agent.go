@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
+	"io"
 	"math/rand/v2"
 	"net/http"
 	"strconv"
@@ -14,19 +14,25 @@ import (
 	"github.com/mrPTqp/metrics/internal/agent/config"
 	"github.com/mrPTqp/metrics/internal/models"
 	"github.com/mrPTqp/metrics/internal/retry"
+	"github.com/mrPTqp/metrics/internal/signer"
+
+	"go.uber.org/zap"
 )
 
 type MetricsAgent struct {
-	c   *http.Client
-	ec  *HTTPErrorClassifier
-	cfg *config.Config
+	c      *http.Client
+	ec     *HTTPErrorClassifier
+	cfg    *config.Config
+	logger *zap.SugaredLogger
 }
 
-func NewMetricsAgent(client *http.Client, cfg *config.Config) *MetricsAgent {
+// NewMetricsAgent принимает logger извне — не создаёт его самостоятельно
+func NewMetricsAgent(client *http.Client, cfg *config.Config, logger *zap.SugaredLogger) *MetricsAgent {
 	return &MetricsAgent{
-		c:   client,
-		ec:  NewHTTPErrorClassifier(),
-		cfg: cfg,
+		c:      client,
+		ec:     NewHTTPErrorClassifier(),
+		cfg:    cfg,
+		logger: logger,
 	}
 }
 
@@ -35,7 +41,7 @@ func (mh *MetricsAgent) StartMetricsAgent() {
 	reportInterval := mh.cfg.ReportInterval
 	poolInterval := mh.cfg.PoolInterval
 
-	log.Printf("agent will send requests to %s", address.String())
+	mh.logger.Infof("agent will send requests to %s", address.String())
 
 	var poolCounter int64 = 0
 	var lastReportTime = time.Now()
@@ -48,13 +54,12 @@ func (mh *MetricsAgent) StartMetricsAgent() {
 
 		currentTime := time.Now()
 		if currentTime.Sub(lastReportTime) >= time.Duration(reportInterval)*time.Second {
-			var errorCounter = 0
 			err := mh.sendMetrics(gauges, counters, address.String())
 			if err != nil {
-				errorCounter++
-				log.Printf("[ERROR] %s", err)
+				mh.logger.Errorf("failed to send metrics: %v", err)
+			} else {
+				mh.logger.Infof("metrics successfully sent")
 			}
-			log.Printf("all metrics sent. errors number %d", errorCounter)
 			lastReportTime = currentTime
 		}
 
@@ -69,44 +74,56 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 
 	g := make([]models.Metrics, 0, len(gauges))
 	for name, value := range gauges {
-		req := models.Metrics{
+		g = append(g, models.Metrics{
 			ID:    name,
 			MType: "gauge",
 			Value: &value,
-		}
-		g = append(g, req)
+		})
 	}
 
 	c := make([]models.Metrics, 0, len(counters))
 	for name, delta := range counters {
-		req := models.Metrics{
+		c = append(c, models.Metrics{
 			ID:    name,
 			MType: "counter",
 			Delta: &delta,
-		}
-		c = append(c, req)
+		})
 	}
 
 	req := append(g, c...)
 
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
+		mh.logger.Errorf("failed to marshal metrics: %v", err)
 		return err
 	}
 
 	compressedBody, err := Compress(jsonBody)
 	if err != nil {
+		mh.logger.Errorf("failed to compress metrics: %v", err)
 		return err
+	}
+
+	var signature *string
+	if mh.cfg.SecretKey != nil && *mh.cfg.SecretKey != "" {
+		signature, err = signer.Sign(compressedBody, mh.cfg.SecretKey)
+		if err != nil {
+			mh.logger.Errorf("failed to sign request: %v", err)
+			return err
+		}
 	}
 
 	url := "http://" + address + "/updates"
-
 	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(compressedBody))
 	if err != nil {
+		mh.logger.Errorf("failed to create HTTP request: %v", err)
 		return err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Content-Encoding", "gzip")	
+	httpReq.Header.Set("Content-Encoding", "gzip")
+	if signature != nil {
+		httpReq.Header.Set("HashSHA256", *signature)
+	}
 
 	var resp *http.Response
 	err = retry.DoWithRetry(
@@ -118,18 +135,39 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 				return err
 			}
 			defer r.Body.Close()
-			resp = r
+
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				return err
+			}
+
+			// Проверка подписи ответа — используем mh.logger
+			respSignature := r.Header.Get("HashSHA256")
+			if respSignature != "" {
+				if !signer.Verify(body, &respSignature, mh.cfg.SecretKey, mh.logger) {
+					mh.logger.Errorf("response signature verification failed")
+					return errors.New("response signature verification failed")
+				}
+			}
+
+			resp = &http.Response{
+				StatusCode: r.StatusCode,
+				Header:     r.Header,
+				Body:       io.NopCloser(bytes.NewReader(body)),
+			}
 			return nil
 		},
 		3,
 		1*time.Second,
 	)
 	if err != nil {
+		mh.logger.Errorf("request failed after retries: %v", err)
 		return err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.New("[ERROR] HTTP status " + strconv.Itoa(resp.StatusCode))
+		mh.logger.Errorf("HTTP request failed with status: %d", resp.StatusCode)
+		return errors.New("HTTP status " + strconv.Itoa(resp.StatusCode))
 	}
 
 	return nil

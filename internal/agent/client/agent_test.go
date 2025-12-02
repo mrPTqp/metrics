@@ -9,6 +9,7 @@ import (
 
 	"github.com/mrPTqp/metrics/internal/agent/config"
 	"github.com/mrPTqp/metrics/internal/models"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestMetricsAgent_SendMetrics(t *testing.T) {
@@ -147,7 +148,8 @@ func TestMetricsAgent_SendMetrics(t *testing.T) {
 			}
 
 			client := &http.Client{}
-			agent := NewMetricsAgent(client, cfg)
+			logger := zaptest.NewLogger(t).Sugar() // Логгер для тестов
+			agent := NewMetricsAgent(client, cfg, logger)
 
 			err := agent.sendMetrics(tt.gauges, tt.counters, server.URL[len("http://"):])
 
@@ -266,7 +268,8 @@ func TestMetricsAgent_SendMetrics_RequestStructure(t *testing.T) {
 			}
 
 			client := &http.Client{}
-			agent := NewMetricsAgent(client, cfg)
+			logger := zaptest.NewLogger(t).Sugar() // Логгер для тестов
+			agent := NewMetricsAgent(client, cfg, logger)
 
 			err := agent.sendMetrics(tt.gauges, tt.counters, server.URL[len("http://"):])
 			if err != nil {
