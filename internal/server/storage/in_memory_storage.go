@@ -83,7 +83,7 @@ func (s *MemStorage) SaveAllMetrics(gauges map[string]float64, counters map[stri
 	for k, v := range counters {
 		s.SaveCounter(k, &v)
 	}
-	s.logState()
+	// s.logState()
 	return nil
 }
 
