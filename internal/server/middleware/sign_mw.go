@@ -61,7 +61,13 @@ type signingResponseWriter struct {
 }
 
 func (rw *signingResponseWriter) Write(b []byte) (int, error) {
-	return rw.body.Write(b)
+	// Сохраняем тело для подписи
+	_, err := rw.body.Write(b)
+	if err != nil {
+		return 0, err
+	}
+	// Отправляем клиенту
+	return rw.ResponseWriter.Write(b)
 }
 
 func (rw *signingResponseWriter) WriteHeader(code int) {
