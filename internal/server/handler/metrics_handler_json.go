@@ -160,7 +160,13 @@ func (mh *MetricHandler) handleGetGaugeJSON(w http.ResponseWriter, req models.Me
 	value, err := mh.service.GetGaugeMetric(req.ID)
 	if err != nil {
 		mh.logger.Error("Error getting gauge metric: %s", req.ID, zap.Error(err))
-		mh.writeJSONError(w, "gauge not found", http.StatusNotFound)
+
+		resp := models.Metrics{
+			ID:    req.ID,
+			MType: "gauge",
+			Value: nil,
+		}
+		mh.writeJSONResponse(w, resp, http.StatusNotFound)
 		return
 	}
 
@@ -177,7 +183,13 @@ func (mh *MetricHandler) handleGetCounterJSON(w http.ResponseWriter, req models.
 	value, err := mh.service.GetCounterMetric(req.ID)
 	if err != nil {
 		mh.logger.Error("Error getting counter metric: %s", req.ID, zap.Error(err))
-		mh.writeJSONError(w, "counter not found", http.StatusNotFound)
+
+		resp := models.Metrics{
+			ID:    req.ID,
+			MType: "counter",
+			Delta: nil,
+		}
+		mh.writeJSONResponse(w, resp, http.StatusNotFound)
 		return
 	}
 
