@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math/rand/v2"
 	"net/http"
@@ -15,7 +16,6 @@ import (
 	"github.com/mrPTqp/metrics/internal/models"
 	"github.com/mrPTqp/metrics/internal/retry"
 	"github.com/mrPTqp/metrics/internal/signer"
-
 	"go.uber.org/zap"
 )
 
@@ -26,7 +26,6 @@ type MetricsAgent struct {
 	logger *zap.SugaredLogger
 }
 
-// NewMetricsAgent принимает logger извне — не создаёт его самостоятельно
 func NewMetricsAgent(client *http.Client, cfg *config.Config, logger *zap.SugaredLogger) *MetricsAgent {
 	return &MetricsAgent{
 		c:      client,
@@ -125,6 +124,9 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 		httpReq.Header.Set("HashSHA256", *signature)
 	}
 
+	// Логируем запрос
+	mh.logRequest(httpReq, compressedBody)
+
 	var resp *http.Response
 	err = retry.DoWithRetry(
 		context.Background(),
@@ -134,14 +136,22 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 			if err != nil {
 				return err
 			}
-			defer r.Body.Close()
 
+			// Читаем тело ответа для логирования и повторного использования
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
+				r.Body.Close()
 				return err
 			}
+			r.Body.Close()
 
-			// Проверка подписи ответа — используем mh.logger
+			// Восстанавливаем тело
+			r.Body = io.NopCloser(bytes.NewReader(body))
+
+			// Логируем ответ
+			mh.logResponse(r, body)
+
+			// Проверка подписи
 			respSignature := r.Header.Get("HashSHA256")
 			if respSignature != "" {
 				if !signer.Verify(body, &respSignature, mh.cfg.SecretKey, mh.logger) {
@@ -150,11 +160,7 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 				}
 			}
 
-			resp = &http.Response{
-				StatusCode: r.StatusCode,
-				Header:     r.Header,
-				Body:       io.NopCloser(bytes.NewReader(body)),
-			}
+			resp = r
 			return nil
 		},
 		3,
@@ -171,4 +177,48 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 	}
 
 	return nil
+}
+
+// logRequest логирует детали HTTP-запроса
+func (mh *MetricsAgent) logRequest(req *http.Request, body []byte) {
+	var bodyStr string
+	if req.Header.Get("Content-Encoding") == "gzip" {
+		decompressed, err := Decompress(body)
+		if err != nil {
+			bodyStr = fmt.Sprintf("<failed to decompress: %v>", err)
+		} else {
+			bodyStr = string(decompressed)
+		}
+	} else {
+		bodyStr = string(body)
+	}
+
+	mh.logger.Infow("outgoing request",
+		"method", req.Method,
+		"url", req.URL.String(),
+		"headers", req.Header,
+		"body", bodyStr,
+	)
+}
+
+// logResponse логирует детали HTTP-ответа
+func (mh *MetricsAgent) logResponse(resp *http.Response, body []byte) {
+	var bodyStr string
+	if resp.Header.Get("Content-Encoding") == "gzip" {
+		decompressed, err := Decompress(body)
+		if err != nil {
+			bodyStr = fmt.Sprintf("<failed to decompress: %v>", err)
+		} else {
+			bodyStr = string(decompressed)
+		}
+	} else {
+		bodyStr = string(body)
+	}
+
+	mh.logger.Infow("incoming response",
+		"status", resp.Status,
+		"statusCode", resp.StatusCode,
+		"headers", resp.Header,
+		"body", bodyStr,
+	)
 }
