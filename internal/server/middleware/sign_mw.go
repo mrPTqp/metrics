@@ -1,3 +1,4 @@
+// internal/server/middleware/sign_mw.go
 package middleware
 
 import (
@@ -18,19 +19,16 @@ func writeJSONError(w http.ResponseWriter, message string, statusCode int, logge
 
 func SignMiddleware(h http.HandlerFunc, key string, logger *zap.SugaredLogger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var bodyContent []byte
-		var err error
-
-		bodyContent, err = io.ReadAll(r.Body)
+		bodyContent, err := io.ReadAll(r.Body)
 		if err != nil {
 			logger.Errorw("failed to read request body", "error", err)
 			writeJSONError(w, "invalid request body", http.StatusBadRequest, logger)
 			return
 		}
+
 		r.Body = io.NopCloser(bytes.NewReader(bodyContent))
 
 		signHeader := r.Header.Get("HashSHA256")
-		// Если заголовок HashSHA256 есть и не пустой — проверяем подпись
 		if signHeader != "" {
 			if !signer.Verify(bodyContent, &signHeader, &key, logger) {
 				logger.Warn("invalid signature in request")
@@ -39,38 +37,33 @@ func SignMiddleware(h http.HandlerFunc, key string, logger *zap.SugaredLogger) h
 			}
 		}
 
-		ww := &responseWriter{ResponseWriter: w, body: &bytes.Buffer{}}
+		ww := &signingResponseWriter{
+			ResponseWriter: w,
+			body:           &bytes.Buffer{},
+		}
+
 		h.ServeHTTP(ww, r)
 
 		responseBody := ww.body.Bytes()
 		sign, err := signer.Sign(responseBody, &key)
-		logger.Debugf("sign ----------> %s", *sign)
 		if err != nil {
 			logger.Errorw("failed to sign response", "error", err)
-			writeJSONError(w, "failed to sign response", http.StatusInternalServerError, logger)
 			return
 		}
-		ww.Header().Set("HashSHA256", *sign)
 
-		for k, v := range ww.Header() {
-			w.Header()[k] = v
-		}
-		w.WriteHeader(ww.code)
-		_, _ = w.Write(ww.body.Bytes())
+		ww.ResponseWriter.Header().Set("HashSHA256", *sign)
 	}
 }
 
-type responseWriter struct {
+type signingResponseWriter struct {
 	http.ResponseWriter
 	body *bytes.Buffer
-	code int
 }
 
-func (rw *responseWriter) WriteHeader(code int) {
-	rw.code = code
-	rw.ResponseWriter.WriteHeader(code)
-}
-
-func (rw *responseWriter) Write(b []byte) (int, error) {
+func (rw *signingResponseWriter) Write(b []byte) (int, error) {
 	return rw.body.Write(b)
+}
+
+func (rw *signingResponseWriter) WriteHeader(code int) {
+	rw.ResponseWriter.WriteHeader(code)
 }

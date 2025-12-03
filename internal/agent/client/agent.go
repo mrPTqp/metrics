@@ -10,6 +10,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/mrPTqp/metrics/internal/agent/config"
@@ -97,19 +98,19 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 		return err
 	}
 
-	compressedBody, err := Compress(jsonBody)
-	if err != nil {
-		mh.logger.Errorf("failed to compress metrics: %v", err)
-		return err
-	}
-
 	var signature *string
 	if mh.cfg.SecretKey != nil && *mh.cfg.SecretKey != "" {
-		signature, err = signer.Sign(compressedBody, mh.cfg.SecretKey)
+		signature, err = signer.Sign(jsonBody, mh.cfg.SecretKey)
 		if err != nil {
 			mh.logger.Errorf("failed to sign request: %v", err)
 			return err
 		}
+	}
+
+	compressedBody, err := Compress(jsonBody)
+	if err != nil {
+		mh.logger.Errorf("failed to compress metrics: %v", err)
+		return err
 	}
 
 	url := "http://" + address + "/updates"
@@ -124,8 +125,7 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 		httpReq.Header.Set("HashSHA256", *signature)
 	}
 
-	// Логируем запрос
-	mh.logRequest(httpReq, compressedBody)
+	mh.logRequest(httpReq, jsonBody)
 
 	var resp *http.Response
 	err = retry.DoWithRetry(
@@ -137,7 +137,6 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 				return err
 			}
 
-			// Читаем тело ответа для логирования и повторного использования
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
 				r.Body.Close()
@@ -145,21 +144,26 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 			}
 			r.Body.Close()
 
-			// Восстанавливаем тело
-			r.Body = io.NopCloser(bytes.NewReader(body))
+			var decompressed []byte
+			contentEncoding := r.Header.Get("Content-Encoding")
+			if strings.Contains(contentEncoding, "gzip") {
+				decompressed, err = Decompress(body)
+				if err != nil {
+					return err
+				}
+			} else {
+				decompressed = body
+			}
 
-			// Логируем ответ
-			mh.logResponse(r, body)
-
-			// Проверка подписи
 			respSignature := r.Header.Get("HashSHA256")
 			if respSignature != "" {
-				if !signer.Verify(body, &respSignature, mh.cfg.SecretKey, mh.logger) {
-					mh.logger.Errorf("response signature verification failed")
+				if !signer.Verify(decompressed, &respSignature, mh.cfg.SecretKey, mh.logger) {
+					mh.logger.Error("response signature verification failed")
 					return errors.New("response signature verification failed")
 				}
 			}
 
+			r.Body = io.NopCloser(bytes.NewReader(body))
 			resp = r
 			return nil
 		},
@@ -179,20 +183,8 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 	return nil
 }
 
-// logRequest логирует детали HTTP-запроса
-func (mh *MetricsAgent) logRequest(req *http.Request, body []byte) {
-	var bodyStr string
-	if req.Header.Get("Content-Encoding") == "gzip" {
-		decompressed, err := Decompress(body)
-		if err != nil {
-			bodyStr = fmt.Sprintf("<failed to decompress: %v>", err)
-		} else {
-			bodyStr = string(decompressed)
-		}
-	} else {
-		bodyStr = string(body)
-	}
-
+func (mh *MetricsAgent) logRequest(req *http.Request, originalBody []byte) {
+	bodyStr := string(originalBody)
 	mh.logger.Infow("outgoing request",
 		"method", req.Method,
 		"url", req.URL.String(),
@@ -201,18 +193,18 @@ func (mh *MetricsAgent) logRequest(req *http.Request, body []byte) {
 	)
 }
 
-// logResponse логирует детали HTTP-ответа
-func (mh *MetricsAgent) logResponse(resp *http.Response, body []byte) {
+func (mh *MetricsAgent) logResponse(resp *http.Response, compressedBody []byte) {
 	var bodyStr string
-	if resp.Header.Get("Content-Encoding") == "gzip" {
-		decompressed, err := Decompress(body)
+	contentEncoding := resp.Header.Get("Content-Encoding")
+	if strings.Contains(contentEncoding, "gzip") {
+		decompressed, err := Decompress(compressedBody)
 		if err != nil {
 			bodyStr = fmt.Sprintf("<failed to decompress: %v>", err)
 		} else {
 			bodyStr = string(decompressed)
 		}
 	} else {
-		bodyStr = string(body)
+		bodyStr = string(compressedBody)
 	}
 
 	mh.logger.Infow("incoming response",

@@ -77,6 +77,7 @@ func main() {
 	mh := handler.NewMetricHandler(ms, sugar)
 	mws := []func(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc{
 		middleware.LoggingMiddleware,
+		middleware.GzipMiddleware,
 	}
 
 	if cfg.SecretKey != nil && *cfg.SecretKey != "" {
@@ -84,8 +85,6 @@ func main() {
 			return middleware.SignMiddleware(h, *cfg.SecretKey, sugar)
 		})
 	}
-
-	mws = append(mws, middleware.GzipMiddleware)
 
 	srv := metrics.StartMetricsServer(mh, mws, cfg, sugar)
 
