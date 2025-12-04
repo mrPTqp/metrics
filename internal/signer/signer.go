@@ -35,8 +35,9 @@ func Verify(content []byte, hmac *string, secretKey *string, logger *zap.Sugared
 			return false
 		}
 		if *hmac != *h {
-			logger.Infof("signature mismatch:\nexpected: %s\nreceived: %s", *h, *hmac)
+			logger.Error("signature mismatch:\nexpected: %s\nreceived: %s", *h, *hmac)
 		}
+		logger.Info("signature are equal")
 		return *hmac == *h
 	}
 }

@@ -56,7 +56,7 @@ func LoggingMiddleware(h http.HandlerFunc, logger *zap.SugaredLogger) http.Handl
             "method", r.Method,
             "uri", r.RequestURI,
             "headers", r.Header,
-            "body", string(body),
+            // "body", string(body),
         )
 
 		defer func() {

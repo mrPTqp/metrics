@@ -25,6 +25,7 @@ func SignMiddleware(h http.HandlerFunc, key string, logger *zap.SugaredLogger) h
 			writeJSONError(w, "invalid request body", http.StatusBadRequest, logger)
 			return
 		}
+		logger.Infow("incoming request body", "body", string(bodyContent), "method", r.Method, "url", r.URL.Path)
 
 		r.Body = io.NopCloser(bytes.NewReader(bodyContent))
 
@@ -45,6 +46,8 @@ func SignMiddleware(h http.HandlerFunc, key string, logger *zap.SugaredLogger) h
 		h.ServeHTTP(ww, r)
 
 		responseBody := ww.body.Bytes()
+		logger.Infow("outgoing response body", "body", string(responseBody))
+
 		sign, err := signer.Sign(responseBody, &key)
 		if err != nil {
 			logger.Errorw("failed to sign response", "error", err)
