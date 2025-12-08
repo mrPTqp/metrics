@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/mrPTqp/metrics/internal/signer"
 	"go.uber.org/zap"
@@ -29,7 +30,19 @@ func SignMiddleware(h http.HandlerFunc, key string, logger *zap.SugaredLogger) h
 
 		r.Body = io.NopCloser(bytes.NewReader(bodyContent))
 
-		signHeader := r.Header.Get("HashSHA256")
+		var signHeader string
+		for name, values := range r.Header {
+			if strings.EqualFold(name, "HashSHA256") {
+				if len(values) > 0 {
+					signHeader = values[0]
+				}
+				break
+			}
+		}
+
+		logger.Infow("received headers", "headers", r.Header)
+		logger.Infow("looking for HashSHA256", "value", signHeader)
+
 		if signHeader != "" {
 			if !signer.Verify(bodyContent, signHeader, key, logger) {
 				logger.Warn("invalid signature in request")
