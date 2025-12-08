@@ -31,7 +31,7 @@ func SignMiddleware(h http.HandlerFunc, key string, logger *zap.SugaredLogger) h
 
 		signHeader := r.Header.Get("HashSHA256")
 		if signHeader != "" {
-			if !signer.Verify(bodyContent, &signHeader, &key, logger) {
+			if !signer.Verify(bodyContent, signHeader, key, logger) {
 				logger.Warn("invalid signature in request")
 				writeJSONError(w, "invalid signature", http.StatusBadRequest, logger)
 				return
@@ -48,13 +48,13 @@ func SignMiddleware(h http.HandlerFunc, key string, logger *zap.SugaredLogger) h
 		responseBody := ww.body.Bytes()
 		logger.Infow("outgoing response body", "body", string(responseBody))
 
-		sign, err := signer.Sign(responseBody, &key)
+		sign, err := signer.Sign(responseBody, key)
 		if err != nil {
 			logger.Errorw("failed to sign response", "error", err)
 			return
 		}
 
-		ww.ResponseWriter.Header().Set("HashSHA256", *sign)
+		ww.ResponseWriter.Header().Set("HashSHA256", sign)
 	}
 }
 

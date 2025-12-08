@@ -98,9 +98,9 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 		return err
 	}
 
-	var signature *string
+	var signature string
 	if mh.cfg.SecretKey != nil && *mh.cfg.SecretKey != "" {
-		signature, err = signer.Sign(jsonBody, mh.cfg.SecretKey)
+		signature, err = signer.Sign(jsonBody, *mh.cfg.SecretKey)
 		if err != nil {
 			mh.logger.Errorf("failed to sign request: %v", err)
 			return err
@@ -121,8 +121,8 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Content-Encoding", "gzip")
-	if signature != nil {
-		httpReq.Header.Set("HashSHA256", *signature)
+	if signature != "" {
+		httpReq.Header.Set("HashSHA256", signature)
 	}
 
 	mh.logRequest(httpReq, jsonBody)
@@ -157,7 +157,7 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 
 			respSignature := r.Header.Get("HashSHA256")
 			if respSignature != "" {
-				if !signer.Verify(decompressed, &respSignature, mh.cfg.SecretKey, mh.logger) {
+				if !signer.Verify(decompressed, respSignature, *mh.cfg.SecretKey, mh.logger) {
 					mh.logger.Error("response signature verification failed")
 					return errors.New("response signature verification failed")
 				}
