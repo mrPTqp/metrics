@@ -44,6 +44,7 @@ func SignMiddleware(h http.HandlerFunc, key string, logger *zap.SugaredLogger) h
 		logger.Infow("looking for HashSHA256", "value", signHeader)
 
 		if signHeader != "" {
+			logger.Infof("body \n%s", bodyContent)
 			if !signer.Verify(bodyContent, signHeader, key, logger) {
 				logger.Warn("invalid signature in request")
 				writeJSONError(w, "invalid signature", http.StatusBadRequest, logger)

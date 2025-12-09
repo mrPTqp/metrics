@@ -99,6 +99,8 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 		return err
 	}
 
+	mh.logger.Infof("body: \n%s", string(jsonBody))
+
 	var signature string
 	if mh.cfg.SecretKey != nil && *mh.cfg.SecretKey != "" {
 		signature, err = signer.Sign(jsonBody, *mh.cfg.SecretKey)

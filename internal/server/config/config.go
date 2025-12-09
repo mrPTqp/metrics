@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -66,6 +67,8 @@ func LoadConfig() *Config {
 	}
 
 	var secretKey string
+	fmt.Printf("env key %s", *envs.SecretKey)
+	fmt.Printf("flag key %s", *flags.SecretKey)
 	if envs.SecretKey != nil && *envs.SecretKey != "" {
 		secretKey = *envs.SecretKey
 	} else if flags.SecretKey != nil && *flags.SecretKey != "" {
