@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mrPTqp/metrics/internal/agent/config"
 	"github.com/mrPTqp/metrics/internal/models"
 	"github.com/mrPTqp/metrics/internal/retry"
@@ -121,6 +122,7 @@ func (mh *MetricsAgent) sendMetrics(gauges map[string]float64, counters map[stri
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Content-Encoding", "gzip")
+	httpReq.Header.Set("RqUID", uuid.New().String())
 	if signature != "" {
 		httpReq.Header.Set("HashSHA256", signature)
 	}

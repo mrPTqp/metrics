@@ -9,6 +9,7 @@ import (
 
 func (mh *MetricHandler) SaveMetricHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("RqUID", r.Header.Get("RqUID"))
 
 	if r.Header.Get("Content-Type") != "application/json" {
 		mh.logger.Error("unexpected content type", zap.String("content-type", r.Header.Get("Content-Type")))
