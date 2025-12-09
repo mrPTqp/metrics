@@ -25,19 +25,35 @@ func computeHMAC(content []byte, secretKey string) (string, error) {
 	return hmac, nil
 }
 
-func Verify(content []byte, hmac string, secretKey string, logger *zap.SugaredLogger) bool {
-	if h, err := computeHMAC(content, secretKey); err != nil {
-		logger.Errorw("failed to compute HMAC", err)
+func Verify(content []byte, receivedHMAC string, secretKey string, logger *zap.SugaredLogger) bool {
+	expectedHMAC, err := computeHMAC(content, secretKey)
+	if err != nil {
+		logger.Errorw("failed to compute HMAC", "error", err)
 		return false
-	} else {
-		if hmac == "" || h == "" {
-			logger.Warn("signature is missing")
-			return false
-		}
-		if hmac != h {
-			logger.Errorf("signature mismatch:\nexpected: %s\nreceived: %s", h, hmac)
-		}
-		logger.Info("signature are equal")
-		return hmac == h
 	}
+
+	if receivedHMAC == "" || expectedHMAC == "" {
+		logger.Warn("signature is missing")
+		return false
+	}
+
+	receivedMAC, err := base64.StdEncoding.DecodeString(receivedHMAC)
+	if err != nil {
+		logger.Warnw("failed to decode received HMAC", "error", err)
+		return false
+	}
+
+	expectedMAC, err := base64.StdEncoding.DecodeString(expectedHMAC)
+	if err != nil {
+		logger.Errorw("failed to decode expected HMAC", "error", err)
+		return false
+	}
+
+	if hmac.Equal(receivedMAC, expectedMAC) {
+		logger.Info("signature is valid")
+		return true
+	}
+
+	logger.Errorf("signature mismatch:\nexpected: %s\nreceived: %s", expectedHMAC, receivedHMAC)
+	return false
 }
