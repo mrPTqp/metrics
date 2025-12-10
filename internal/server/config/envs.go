@@ -50,7 +50,7 @@ func ParseEnvs() *Envs {
 		databaseDsn = envDatabaseDsn
 	}
 
-	if envSecretKey := os.Getenv("SECRET_KEY"); envSecretKey != "" {
+	if envSecretKey := os.Getenv("KEY"); envSecretKey != "" {
 		secretKey = envSecretKey
 	}
 
