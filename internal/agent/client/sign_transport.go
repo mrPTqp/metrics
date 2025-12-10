@@ -41,26 +41,20 @@ func (st *SigningTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		return resp, err
 	}
 
-	if resp.Body != nil {
-		bodyBytes, err := io.ReadAll(resp.Body)
-		resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Восстанавливаем тело ответа
-
-		if err != nil {
-			st.Logger.Warnw("failed to read response body", "error", err)
-			return resp, nil
-		}
-
-		if len(bodyBytes) > 0 {
-			signature := resp.Header.Get("HashSHA256")
-			if signature == "" {
-				st.Logger.Warn("missing HashSHA256 header in response")
-				return resp, nil
-			}
-			if !signer.Verify(bodyBytes, &signature, &st.SecretKey, st.Logger) {
-				return nil, fmt.Errorf("response signature verification failed")
-			}
-		}
+	signature := resp.Header.Get("HashSHA256")
+	if signature == "" {
+		return resp, nil
 	}
+	bodyBytes, err = io.ReadAll(resp.Body)
+	if err != nil {
+		st.Logger.Warnw("failed to read response body", "error", err)
+		return resp, nil
+	}
+	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Восстанавливаем тело
+
+	if !signer.Verify(bodyBytes, &signature, &st.SecretKey, st.Logger) {
+        return nil, fmt.Errorf("response signature verification failed")
+    }
 
 	return resp, err
 }

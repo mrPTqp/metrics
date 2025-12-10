@@ -30,8 +30,12 @@ func Verify(content []byte, hmac *string, secretKey *string, logger *zap.Sugared
 		logger.Errorw("failed to compute HMAC", err)
 		return false
 	} else {
-		if hmac != h {
-			logger.Infof("received sign does not equal expexted \n%s\n%s", *h, *hmac)
+		if hmac == nil || h == nil {
+			logger.Warn("signature is missing")
+			return false
+		}
+		if *hmac != *h {
+			logger.Infof("signature mismatch:\nexpected: %s\nreceived: %s", *h, *hmac)
 		}
 		return *hmac == *h
 	}
