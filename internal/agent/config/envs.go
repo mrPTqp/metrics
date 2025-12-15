@@ -10,6 +10,7 @@ type Envs struct {
 	ReportInterval *int
 	PoolInterval   *int
 	SecretKey      *string
+	RateLimit      *int
 }
 
 func ParseEnvs() *Envs {
@@ -17,6 +18,7 @@ func ParseEnvs() *Envs {
 	var reportInterval int
 	var poolInterval int
 	var secretKey string
+	var rateLimit int
 
 	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
 		address = envAddr
@@ -42,10 +44,19 @@ func ParseEnvs() *Envs {
 		secretKey = envSecretKey
 	}
 
+	if envRateLimitStr := os.Getenv("RATE_LIMIT"); envRateLimitStr != "" {
+		if envRateLimit, err := strconv.Atoi(envRateLimitStr); err != nil {
+			panic("wrong STORE_INTERVAL type value: " + envRateLimitStr)
+		} else {
+			rateLimit = envRateLimit
+		}
+	}
+
 	return &Envs{
 		Address:        &address,
 		ReportInterval: &reportInterval,
 		PoolInterval:   &poolInterval,
 		SecretKey:      &secretKey,
+		RateLimit:      &rateLimit,
 	}
 }

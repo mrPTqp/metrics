@@ -83,22 +83,7 @@ func (s *MemStorage) SaveAllMetrics(gauges map[string]float64, counters map[stri
 	for k, v := range counters {
 		s.SaveCounter(k, &v)
 	}
-	s.logState()
 	return nil
-}
-
-func (s *MemStorage) logState() {
-	var log = s.logger
-	log.Infoln("Current MemStorage state:")
-	log.Infoln("Gauges:")
-	for k, v := range s.gauges {
-		log.Infof("  %s: %f\n", k, v)
-	}
-	log.Infoln("Counters:")
-	for k, v := range s.counters {
-		log.Infof("  %s: %d\n", k, v)
-	}
-	log.Infoln("-------------------------")
 }
 
 func (s *MemStorage) CheckStorageAvailability() bool {

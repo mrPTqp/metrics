@@ -1,8 +1,14 @@
 package agent
 
-import "runtime"
+import (
+	"fmt"
+	"runtime"
 
-func CollectMetrics() map[string]float64 {
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
+)
+
+func CollectGaugeMetrics() map[string]float64 {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
@@ -34,5 +40,22 @@ func CollectMetrics() map[string]float64 {
 	metrics["Alloc"] = float64(memStats.Alloc)
 	metrics["BuckHashSys"] = float64(memStats.BuckHashSys)
 	metrics["Frees"] = float64(memStats.Frees)
+	return metrics
+}
+
+func CollectAdditionalGaugeMetrics() map[string]float64 {
+	metrics := make(map[string]float64)
+
+	if vm, err := mem.VirtualMemory(); err == nil {
+		metrics["TotalMemory"] = float64(vm.Total)
+		metrics["FreeMemory"] = float64(vm.Free)
+	}
+
+	if percents, err := cpu.Percent(0, true); err == nil {
+		for i, p := range percents {
+			metrics[fmt.Sprintf("CPUutilization%d", i+1)] = p
+		}
+	}
+
 	return metrics
 }

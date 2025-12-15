@@ -9,6 +9,7 @@ type Config struct {
 	ReportInterval int
 	PoolInterval   int
 	SecretKey      *string
+	RateLimit      int
 }
 
 func LoadConfig() *Config {
@@ -47,10 +48,18 @@ func LoadConfig() *Config {
 		secretKey = *flags.SecretKey
 	}
 
+	rateLimit := 20
+	if envs.RateLimit != nil && *envs.RateLimit != 0 {
+		rateLimit = *envs.RateLimit
+	} else if flags.RateLimit != nil {
+		rateLimit = *flags.RateLimit
+	}
+
 	return &Config{
 		Address:        na,
 		ReportInterval: reportInterval,
 		PoolInterval:   poolInterval,
 		SecretKey:      &secretKey,
+		RateLimit:      rateLimit,
 	}
 }
