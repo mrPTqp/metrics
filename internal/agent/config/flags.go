@@ -7,7 +7,7 @@ import (
 type Flags struct {
 	Address        *string
 	ReportInterval *int
-	PoolInterval   *int
+	PollInterval   *int
 	SecretKey      *string
 	RateLimit      *int
 }
@@ -15,13 +15,13 @@ type Flags struct {
 func ParseFlags() *Flags {
 	var addr string
 	var reportInterval int
-	var poolInterval int
+	var pollInterval int
 	var secretKey string
 	var rateLimit int
 
 	flag.StringVar(&addr, "a", "", "address and port to send metrics")
 	flag.IntVar(&reportInterval, "r", 10, "report interval in seconds")
-	flag.IntVar(&poolInterval, "p", 2, "pool interval in seconds")
+	flag.IntVar(&pollInterval, "p", 2, "poll interval in seconds")
 	flag.StringVar(&secretKey, "k", "", "sign secret key")
 	flag.IntVar(&rateLimit, "l", 20, "agent rate limit")
 
@@ -30,7 +30,7 @@ func ParseFlags() *Flags {
 	return &Flags{
 		Address:        &addr,
 		ReportInterval: &reportInterval,
-		PoolInterval:   &poolInterval,
+		PollInterval:   &pollInterval,
 		SecretKey:      &secretKey,
 		RateLimit:      &rateLimit,
 	}

@@ -8,7 +8,7 @@ import (
 type Envs struct {
 	Address        *string
 	ReportInterval *int
-	PoolInterval   *int
+	PollInterval   *int
 	SecretKey      *string
 	RateLimit      *int
 }
@@ -16,7 +16,7 @@ type Envs struct {
 func ParseEnvs() *Envs {
 	var address string
 	var reportInterval int
-	var poolInterval int
+	var pollInterval int
 	var secretKey string
 	var rateLimit int
 
@@ -26,17 +26,17 @@ func ParseEnvs() *Envs {
 
 	if envReportIntervalStr := os.Getenv("REPORT_INTERVAL"); envReportIntervalStr != "" {
 		if envReportInterval, err := strconv.Atoi(envReportIntervalStr); err != nil {
-			panic("wrong STORE_INTERVAL type value: " + envReportIntervalStr)
+			panic("wrong REPORT_INTERVAL type value: " + envReportIntervalStr)
 		} else {
 			reportInterval = envReportInterval
 		}
 	}
 
-	if envPoolIntervalStr := os.Getenv("POLL_INTERVAL"); envPoolIntervalStr != "" {
-		if poolInterval, err := strconv.Atoi(envPoolIntervalStr); err != nil {
-			panic("wrong STORE_INTERVAL type value: " + envPoolIntervalStr)
+	if envPollIntervalStr := os.Getenv("POLL_INTERVAL"); envPollIntervalStr != "" {
+		if envPollInterval, err := strconv.Atoi(envPollIntervalStr); err != nil {
+			panic("wrong POLL_INTERVAL type value: " + envPollIntervalStr)
 		} else {
-			reportInterval = poolInterval
+			pollInterval = envPollInterval
 		}
 	}
 
@@ -46,7 +46,7 @@ func ParseEnvs() *Envs {
 
 	if envRateLimitStr := os.Getenv("RATE_LIMIT"); envRateLimitStr != "" {
 		if envRateLimit, err := strconv.Atoi(envRateLimitStr); err != nil {
-			panic("wrong STORE_INTERVAL type value: " + envRateLimitStr)
+			panic("wrong RATE_LIMIT type value: " + envRateLimitStr)
 		} else {
 			rateLimit = envRateLimit
 		}
@@ -55,7 +55,7 @@ func ParseEnvs() *Envs {
 	return &Envs{
 		Address:        &address,
 		ReportInterval: &reportInterval,
-		PoolInterval:   &poolInterval,
+		PollInterval:   &pollInterval,
 		SecretKey:      &secretKey,
 		RateLimit:      &rateLimit,
 	}

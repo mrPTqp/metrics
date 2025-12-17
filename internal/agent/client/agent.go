@@ -32,7 +32,7 @@ func NewMetricsAgent(client *http.Client, cfg *config.Config, repository reposit
 	}
 }
 
-func (ma *MetricsAgent) PoolMetrics() {
+func (ma *MetricsAgent) PollMetrics() {
 	_, counters := ma.repository.GetAllMetrics()
 	newCounters := make(map[string]int64)
 	newCounters["PollCount"] = counters["PollCount"] + 1
@@ -40,7 +40,7 @@ func (ma *MetricsAgent) PoolMetrics() {
 	ma.repository.SaveAllMetrics(newGauges, newCounters)
 }
 
-func (ma *MetricsAgent) PoolAdditionalGaugeMetrics() {
+func (ma *MetricsAgent) PollAdditionalGaugeMetrics() {
 	newAdditionalGauges := CollectAdditionalGaugeMetrics()
 	ma.repository.SaveAdditionalGaugeMetrics(newAdditionalGauges)
 }
@@ -130,4 +130,6 @@ func (ma *MetricsAgent) SendMetrics() {
 		ma.logger.Errorf("HTTP request failed with status: %d", resp.StatusCode)
 		return
 	}
+
+	ma.logger.Info("Metrics successfully sent to server")
 }

@@ -47,9 +47,9 @@ func (m *MockRepository) GetAdditionalGaugeMetrics() map[string]float64 {
 	return args.Get(0).(map[string]float64)
 }
 
-func TestMetricsAgent_PoolMetrics(t *testing.T) {
+func TestMetricsAgent_PollMetrics(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
-	cfg := &config.Config{ReportInterval: 10, PoolInterval: 2}
+	cfg := &config.Config{ReportInterval: 10, PollInterval: 2}
 
 	tests := []struct {
 		name           string
@@ -90,7 +90,7 @@ func TestMetricsAgent_PoolMetrics(t *testing.T) {
 			tt.expectCall(mockRepo)
 
 			agent := NewMetricsAgent(&http.Client{}, cfg, mockRepo, logger)
-			agent.PoolMetrics()
+			agent.PollMetrics()
 
 			mockRepo.AssertExpectations(t)
 		})

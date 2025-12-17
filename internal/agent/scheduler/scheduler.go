@@ -1,6 +1,8 @@
 package scheduler
 
 import (
+	"context"
+	"sync"
 	"time"
 
 	"github.com/mrPTqp/metrics/internal/agent/client"
@@ -19,27 +21,36 @@ func NewScheduler(agent *agent.MetricsAgent, logger *zap.SugaredLogger) *Metrics
 	}
 }
 
-func (s *MetricsScheduler) Start(poolInterval int, reportInterval int, rateLimit int, taskChannelSize int) {
+func (s *MetricsScheduler) Start(ctx context.Context, pollInterval int, reportInterval int, rateLimit int, taskChannelSize int) {
 	taskCh := make(chan struct{}, taskChannelSize)
+	var wg sync.WaitGroup
 
-	poolTicker := time.NewTicker(time.Duration(poolInterval) * time.Second)
+	pollTicker := time.NewTicker(time.Duration(pollInterval) * time.Second)
 	reportTicker := time.NewTicker(time.Duration(reportInterval) * time.Second)
 
 	defer func() {
-		poolTicker.Stop()
+		pollTicker.Stop()
 		reportTicker.Stop()
 		close(taskCh)
+		s.logger.Info("Scheduler stopped: tickers stopped and task channel closed")
 	}()
 
 	for i := range rateLimit {
-		go s.worker(i, taskCh)
+		wg.Add(1)
+		go s.worker(i, taskCh, &wg)
 	}
 
 	for {
 		select {
-		case <-poolTicker.C:
-			go s.agent.PoolMetrics()
-			go s.agent.PoolAdditionalGaugeMetrics()
+		case <-ctx.Done():
+			s.logger.Info("Shutdown signal received, waiting for active workers to finish...")
+			wg.Wait()
+			s.logger.Info("All workers have stopped. Scheduler shutdown complete.")
+			return
+
+		case <-pollTicker.C:
+			s.agent.PollMetrics()
+			s.agent.PollAdditionalGaugeMetrics()
 
 		case <-reportTicker.C:
 			select {
@@ -52,7 +63,9 @@ func (s *MetricsScheduler) Start(poolInterval int, reportInterval int, rateLimit
 	}
 }
 
-func (s *MetricsScheduler) worker(id int, tasks <-chan struct{}) {
+func (s *MetricsScheduler) worker(id int, tasks <-chan struct{}, wg *sync.WaitGroup) {
+	defer wg.Done()
+	
 	s.logger.Debugf("Worker %d: started and waiting for tasks", id)
 
 	for range tasks {

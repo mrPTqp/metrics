@@ -7,7 +7,7 @@ import (
 type Config struct {
 	Address        models.NetAddress
 	ReportInterval int
-	PoolInterval   int
+	PollInterval   int
 	SecretKey      *string
 	RateLimit      int
 }
@@ -34,11 +34,11 @@ func LoadConfig() *Config {
 		reportInterval = *flags.ReportInterval
 	}
 
-	poolInterval := 2
-	if envs.PoolInterval != nil && *envs.PoolInterval != 0 {
-		poolInterval = *envs.PoolInterval
+	pollInterval := 2
+	if envs.PollInterval != nil && *envs.PollInterval != 0 {
+		pollInterval = *envs.PollInterval
 	} else if flags.ReportInterval != nil {
-		poolInterval = *flags.PoolInterval
+		pollInterval = *flags.PollInterval
 	}
 
 	var secretKey string
@@ -58,7 +58,7 @@ func LoadConfig() *Config {
 	return &Config{
 		Address:        na,
 		ReportInterval: reportInterval,
-		PoolInterval:   poolInterval,
+		PollInterval:   pollInterval,
 		SecretKey:      &secretKey,
 		RateLimit:      rateLimit,
 	}

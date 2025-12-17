@@ -48,13 +48,14 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	taskChannelSize := 30
+	sendWorkersSize := config.RateLimit
+	taskChannelSize := sendWorkersSize * 3
 	go func() {
-		sc.Start(config.PoolInterval, config.ReportInterval, config.RateLimit, taskChannelSize)
+		sc.Start(ctx, config.PollInterval, config.ReportInterval, sendWorkersSize, taskChannelSize)
 	}()
 
 	<-ctx.Done()
-	sugar.Info("Shutdown signal received, sending final metrics...")
-	a.SendMetrics()
+	sugar.Info("Shutdown signal received")
+	sugar.Info("Waiting for scheduler to finish...")
 	sugar.Info("Agent stopped gracefully")
 }
