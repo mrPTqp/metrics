@@ -22,55 +22,21 @@ func LoadConfig() *Config {
 	flags := ParseFlags()
 
 	na := models.NetAddress{}
-	address := "localhost:8080"
-	if envs.Address != nil && *envs.Address != "" {
-		address = *envs.Address
-	} else if flags.Address != nil && *flags.Address != "" {
-		address = *flags.Address
-	}
+	address := pickValue(envs.Address, flags.Address, "localhost:8080")
 	if err := na.SetAddress(address); err != nil {
 		panic("invalid address: " + address + " error: " + err.Error())
 	}
-
-	storeInterval := 300
-	if envs.StoreInterval != nil && *envs.StoreInterval != 0 {
-		storeInterval = *envs.StoreInterval
-	} else if flags.StoreInterval != nil {
-		storeInterval = *flags.StoreInterval
-	}
-
+	
+	storeInterval := pickValue(envs.StoreInterval, flags.StoreInterval, 300)
 	var syncBackupToFile = false
 	if storeInterval == 0 {
 		syncBackupToFile = true
 	}
 
-	fileStoragePath := os.TempDir() + "/"
-	if envs.FileStoragePath != nil && *envs.FileStoragePath != "" {
-		fileStoragePath = *envs.FileStoragePath
-	} else if flags.FileStoragePath != nil && *flags.FileStoragePath != "" {
-		fileStoragePath = *flags.FileStoragePath
-	}
-
-	var restore = false
-	if envs.Restore != nil && *envs.Restore {
-		restore = *envs.Restore
-	} else if flags.Restore != nil && *flags.Restore {
-		restore = *flags.Restore
-	}
-
-	var databaseDsn string
-	if envs.DatabaseDsn != nil && *envs.DatabaseDsn != "" {
-		databaseDsn = *envs.DatabaseDsn
-	} else if flags.DatabaseDsn != nil && *flags.DatabaseDsn != "" {
-		databaseDsn = *flags.DatabaseDsn
-	}
-
-	var secretKey string
-	if envs.SecretKey != nil && *envs.SecretKey != "" {
-		secretKey = *envs.SecretKey
-	} else if flags.SecretKey != nil && *flags.SecretKey != "" {
-		secretKey = *flags.SecretKey
-	}
+	fileStoragePath := pickValue(envs.FileStoragePath, flags.FileStoragePath, os.TempDir() + "/")
+	restore := pickValue(envs.Restore, flags.Restore, false)
+	databaseDsn := pickValue(envs.DatabaseDsn, flags.DatabaseDsn, "")
+	secretKey := pickValue(envs.SecretKey, flags.SecretKey, "")
 
 	return &Config{
 		Address:          na,
@@ -81,4 +47,15 @@ func LoadConfig() *Config {
 		DatabaseDsn:      &databaseDsn,
 		SecretKey:        &secretKey,
 	}
+}
+
+func pickValue[T comparable](env, flag *T, def T) T {
+	var zero T
+	if env != nil && *env != zero {
+		return *env
+	}
+	if flag != nil && *flag != zero {
+		return *flag
+	}
+	return def
 }
