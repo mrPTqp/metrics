@@ -13,7 +13,7 @@ import (
 func StartMetricsServer(mh *handler.MetricHandler, mws []func(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc, cfg *config.Config, sugar *zap.SugaredLogger) *http.Server {
 	r := chi.NewRouter()
 	r.Get("/", wrap(mh.CollectMetricsHandler, sugar, mws...))
-	if cfg.DatabaseDsn != "" {
+	if cfg.DatabaseDsn != nil && *cfg.DatabaseDsn != "" {
 		r.Get("/ping", wrap(mh.DBHealthCheckHandler, sugar, mws...))
 	}
 	r.Route("/update", func(r chi.Router) {

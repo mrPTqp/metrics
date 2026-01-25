@@ -30,15 +30,15 @@ func main() {
 	sugar.Infow("configuration created", "config", cfg)
 
 	var mr repository.MetricRepository
-	if cfg.DatabaseDsn != "" {
+	if cfg.DatabaseDsn != nil && *cfg.DatabaseDsn != "" {
 		var err error
 		sugar.Info("Applying database migrations...")
-		if err = migrations.RunMigrations(cfg.DatabaseDsn, sugar); err != nil {
+		if err = migrations.RunMigrations(*cfg.DatabaseDsn, sugar); err != nil {
 			sugar.Panicf("Migration failed: %v", err)
 		}
 		sugar.Info("Migrations applied successfully or no changes")
 
-		mr, err = storage.NewPostgresStorage(cfg.DatabaseDsn, sugar)
+		mr, err = storage.NewPostgresStorage(*cfg.DatabaseDsn, sugar)
 		if err != nil {
 			sugar.Panic("init postgres error", err)
 		}
@@ -77,8 +77,16 @@ func main() {
 	mh := handler.NewMetricHandler(ms, sugar)
 	mws := []func(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc{
 		middleware.LoggingMiddleware,
-		middleware.GzipMiddleware,
 	}
+
+	if cfg.SecretKey != nil && *cfg.SecretKey != "" {
+		mws = append(mws, func(h http.HandlerFunc, sugar *zap.SugaredLogger) http.HandlerFunc {
+			return middleware.SignMiddleware(h, *cfg.SecretKey, sugar)
+		})
+	}
+
+	mws = append(mws, middleware.GzipMiddleware)
+
 	srv := metrics.StartMetricsServer(mh, mws, cfg, sugar)
 
 	stop := make(chan os.Signal, 1)

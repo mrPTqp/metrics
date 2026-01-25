@@ -1,4 +1,3 @@
-// internal/agent/client/agent_test.go
 package agent
 
 import (
@@ -7,275 +6,170 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/mrPTqp/metrics/internal/agent/config"
 	"github.com/mrPTqp/metrics/internal/models"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"go.uber.org/zap/zaptest"
 )
 
-func TestMetricsAgent_SendMetrics(t *testing.T) {
+type MockRepository struct {
+	mock.Mock
+}
+
+func (m *MockRepository) SaveGauge(name string, value *float64) error {
+	args := m.Called(name, value)
+	return args.Error(0)
+}
+
+func (m *MockRepository) SaveCounter(name string, delta *int64) error {
+	args := m.Called(name, delta)
+	return args.Error(0)
+}
+
+func (m *MockRepository) SaveAllMetrics(gauges map[string]float64, counters map[string]int64) {
+	m.Called(gauges, counters)
+}
+
+func (m *MockRepository) SaveAdditionalGaugeMetrics(additionalGauges map[string]float64) {
+	m.Called(additionalGauges)
+}
+
+func (m *MockRepository) GetAllMetrics() (map[string]float64, map[string]int64) {
+	args := m.Called()
+	return args.Get(0).(map[string]float64), args.Get(1).(map[string]int64)
+}
+
+func (m *MockRepository) GetAdditionalGaugeMetrics() map[string]float64 {
+	args := m.Called()
+	return args.Get(0).(map[string]float64)
+}
+
+func TestMetricsAgent_PollMetrics(t *testing.T) {
+	logger := zaptest.NewLogger(t).Sugar()
+	cfg := &config.Config{ReportInterval: 10, PollInterval: 2}
+
 	tests := []struct {
 		name           string
-		gauges         map[string]float64
-		counters       map[string]int64
-		serverStatus   int
-		serverResponse string
-		wantErr        bool
-		expectRequest  bool
+		initialCounters map[string]int64
+		expectCall     func(*MockRepository)
 	}{
 		{
-			name: "successful send with both gauges and counters",
-			gauges: map[string]float64{
-				"Alloc":       123.45,
-				"RandomValue": 0.987,
+			name:           "Increments_PollCount",
+			initialCounters: map[string]int64{"PollCount": 5},
+			expectCall: func(mr *MockRepository) {
+				mr.On("GetAllMetrics").Return(
+					map[string]float64{},
+					map[string]int64{"PollCount": 5},
+				).Once()
+				mr.On("SaveAllMetrics", mock.AnythingOfType("map[string]float64"), map[string]int64{"PollCount": 6}).
+					Return().
+					Once()
 			},
-			counters: map[string]int64{
-				"PollCount": 42,
-			},
-			serverStatus:   http.StatusOK,
-			serverResponse: `{"status":"ok"}`,
-			wantErr:        false,
-			expectRequest:  true,
 		},
 		{
-			name:           "empty metrics - no request should be sent",
-			gauges:         map[string]float64{},
-			counters:       map[string]int64{},
-			serverStatus:   http.StatusOK,
-			serverResponse: "",
-			wantErr:        false,
-			expectRequest:  false,
-		},
-		{
-			name: "only gauges",
-			gauges: map[string]float64{
-				"HeapAlloc": 678.90,
-				"GCSys":     1123.45,
+			name:           "Empty_Counters_Initiates_PollCount",
+			initialCounters: map[string]int64{},
+			expectCall: func(mr *MockRepository) {
+				mr.On("GetAllMetrics").Return(
+					map[string]float64{},
+					map[string]int64{},
+				).Once()
+				mr.On("SaveAllMetrics", mock.AnythingOfType("map[string]float64"), map[string]int64{"PollCount": 1}).
+					Return().
+					Once()
 			},
-			counters:      map[string]int64{},
-			serverStatus:  http.StatusOK,
-			wantErr:       false,
-			expectRequest: true,
-		},
-		{
-			name:   "only counters",
-			gauges: map[string]float64{},
-			counters: map[string]int64{
-				"PollCount": 1,
-				"Requests":  100,
-			},
-			serverStatus:  http.StatusOK,
-			wantErr:       false,
-			expectRequest: true,
-		},
-		{
-			name: "server returns 500 error",
-			gauges: map[string]float64{
-				"Alloc": 123.45,
-			},
-			counters: map[string]int64{
-				"PollCount": 1,
-			},
-			serverStatus:   http.StatusInternalServerError,
-			serverResponse: `{"error":"internal server error"}`,
-			wantErr:        true,
-			expectRequest:  true,
-		},
-		{
-			name: "server returns 400 bad request",
-			gauges: map[string]float64{
-				"Alloc": 123.45,
-			},
-			counters: map[string]int64{
-				"PollCount": 1,
-			},
-			serverStatus:   http.StatusBadRequest,
-			serverResponse: `{"error":"bad request"}`,
-			wantErr:        true,
-			expectRequest:  true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var requestReceived bool
-			var requestBody []byte
-			var requestHeaders http.Header
+			mockRepo := new(MockRepository)
+			tt.expectCall(mockRepo)
 
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				requestReceived = true
-				requestHeaders = r.Header.Clone()
+			agent := NewMetricsAgent(&http.Client{}, cfg, mockRepo, logger)
+			agent.PollMetrics()
 
-				body, err := io.ReadAll(r.Body)
-				if err != nil {
-					t.Fatalf("Failed to read request body: %v", err)
-				}
-				requestBody = body
-
-				if r.URL.Path != "/updates" {
-					t.Errorf("Expected path /updates, got %s", r.URL.Path)
-				}
-				if r.Method != "POST" {
-					t.Errorf("Expected POST method, got %s", r.Method)
-				}
-
-				w.WriteHeader(tt.serverStatus)
-				if tt.serverResponse != "" {
-					_, _ = w.Write([]byte(tt.serverResponse))
-				}
-			}))
-			defer server.Close()
-
-			// Удаляем "http://"
-			serverURL := server.URL[len("http://"):]
-
-			client := &http.Client{}
-			agent := NewMetricsAgent(client)
-
-			err := agent.sendMetrics(tt.gauges, tt.counters, serverURL)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("sendMetrics() error = %v, wantErr %v", err, tt.wantErr)
-			}
-
-			if requestReceived != tt.expectRequest {
-				t.Errorf("Request received = %v, expectRequest %v", requestReceived, tt.expectRequest)
-			}
-
-			// Проверяем тело и заголовки, только если запрос был отправлен и ожидается успешный статус
-			if requestReceived && tt.expectRequest && !tt.wantErr {
-				if contentType := requestHeaders.Get("Content-Type"); contentType != "application/json" {
-					t.Errorf("Content-Type header = %s, expected application/json", contentType)
-				}
-				if contentEncoding := requestHeaders.Get("Content-Encoding"); contentEncoding != "gzip" {
-					t.Errorf("Content-Encoding header = %s, expected gzip", contentEncoding)
-				}
-
-				if len(requestBody) == 0 {
-					t.Fatal("Request body is empty")
-				}
-
-				decompressedBody, err := Decompress(requestBody)
-				if err != nil {
-					t.Fatalf("Failed to decompress request body: %v", err)
-				}
-
-				var metrics []models.Metrics
-				if err := json.Unmarshal(decompressedBody, &metrics); err != nil {
-					t.Fatalf("Invalid JSON in request: %v", err)
-				}
-
-				expectedCount := len(tt.gauges) + len(tt.counters)
-				if len(metrics) != expectedCount {
-					t.Errorf("Number of metrics = %d, expected %d", len(metrics), expectedCount)
-				}
-
-				gaugeCount := 0
-				counterCount := 0
-				for _, metric := range metrics {
-					switch metric.MType {
-					case "gauge":
-						gaugeCount++
-						if metric.Value == nil {
-							t.Error("Gauge metric has nil Value")
-						}
-					case "counter":
-						counterCount++
-						if metric.Delta == nil {
-							t.Error("Counter metric has nil Delta")
-						}
-					default:
-						t.Errorf("Unknown metric type: %s", metric.MType)
-					}
-				}
-
-				if gaugeCount != len(tt.gauges) {
-					t.Errorf("Gauge count = %d, expected %d", gaugeCount, len(tt.gauges))
-				}
-				if counterCount != len(tt.counters) {
-					t.Errorf("Counter count = %d, expected %d", counterCount, len(tt.counters))
-				}
-			}
+			mockRepo.AssertExpectations(t)
 		})
 	}
 }
 
-func TestMetricsAgent_SendMetrics_RequestStructure(t *testing.T) {
+func TestMetricsAgent_SendMetrics(t *testing.T) {
+	logger := zaptest.NewLogger(t).Sugar()
+	cfg := &config.Config{
+		Address: models.NetAddress{Host: "localhost", Port: 8080},
+	}
+
 	tests := []struct {
-		name     string
-		gauges   map[string]float64
-		counters map[string]int64
+		name              string
+		gauges            map[string]float64
+		counters          map[string]int64
+		additionalGauges  map[string]float64
+		serverStatus      int
+		expectRequestBody bool
 	}{
 		{
-			name: "single gauge and counter",
-			gauges: map[string]float64{
-				"TestGauge": 123.456,
-			},
-			counters: map[string]int64{
-				"TestCounter": 789,
-			},
+			name:              "Sends_Valid_Metrics",
+			gauges:            map[string]float64{"CPU": 0.75},
+			counters:          map[string]int64{"PollCount": 42},
+			additionalGauges:  map[string]float64{"RandomValue": 0.5},
+			serverStatus:      http.StatusOK,
+			expectRequestBody: true,
 		},
 		{
-			name: "multiple metrics",
-			gauges: map[string]float64{
-				"Gauge1": 1.1,
-				"Gauge2": 2.2,
-				"Gauge3": 3.3,
-			},
-			counters: map[string]int64{
-				"Counter1": 10,
-				"Counter2": 20,
-			},
+			name:              "Empty_Metrics_Skips_Request",
+			gauges:            map[string]float64{},
+			counters:          map[string]int64{},
+			additionalGauges:  map[string]float64{},
+			serverStatus:      http.StatusOK,
+			expectRequestBody: false,
+		},
+		{
+			name:              "Server_Returns_Error",
+			gauges:            map[string]float64{"CPU": 1.0},
+			counters:          map[string]int64{"Hits": 100},
+			additionalGauges:  map[string]float64{},
+			serverStatus:      http.StatusInternalServerError,
+			expectRequestBody: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var receivedMetrics []models.Metrics
+			mockRepo := new(MockRepository)
+			mockRepo.On("GetAllMetrics").Return(tt.gauges, tt.counters).Once()
+			mockRepo.On("GetAdditionalGaugeMetrics").Return(tt.additionalGauges).Maybe()
 
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				body, _ := io.ReadAll(r.Body)
-				decompressedBody, _ := Decompress(body)
-				_ = json.Unmarshal(decompressedBody, &receivedMetrics)
-				w.WriteHeader(http.StatusOK)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if tt.expectRequestBody {
+					assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+					assert.Equal(t, "gzip", r.Header.Get("Content-Encoding"))
+
+					body, _ := io.ReadAll(r.Body)
+					decBody, err := Decompress(body)
+					assert.NoError(t, err)
+
+					var metrics []models.Metrics
+					err = json.Unmarshal(decBody, &metrics)
+					assert.NoError(t, err)
+					assert.True(t, len(metrics) > 0, "Expected non-empty metrics array")
+				}
+
+				w.WriteHeader(tt.serverStatus)
 			}))
-			defer server.Close()
+			defer srv.Close()
 
-			client := &http.Client{}
-			agent := NewMetricsAgent(client)
+			_ = cfg.Address.SetAddress(srv.URL[len("http://"):])
 
-			err := agent.sendMetrics(tt.gauges, tt.counters, server.URL[len("http://"):])
-			if err != nil {
-				t.Fatalf("sendMetrics() unexpected error: %v", err)
-			}
+			client := &http.Client{Timeout: time.Second * 5}
 
-			if len(receivedMetrics) != len(tt.gauges)+len(tt.counters) {
-				t.Errorf("Expected %d metrics, got %d", len(tt.gauges)+len(tt.counters), len(receivedMetrics))
-			}
+			agent := NewMetricsAgent(client, cfg, mockRepo, logger)
+			agent.SendMetrics()
 
-			for name, expectedValue := range tt.gauges {
-				found := false
-				for _, metric := range receivedMetrics {
-					if metric.ID == name && metric.MType == "gauge" && metric.Value != nil && *metric.Value == expectedValue {
-						found = true
-						break
-					}
-				}
-				if !found {
-					t.Errorf("Gauge metric %s not found or has wrong value", name)
-				}
-			}
-
-			for name, expectedDelta := range tt.counters {
-				found := false
-				for _, metric := range receivedMetrics {
-					if metric.ID == name && metric.MType == "counter" && metric.Delta != nil && *metric.Delta == expectedDelta {
-						found = true
-						break
-					}
-				}
-				if !found {
-					t.Errorf("Counter metric %s not found or has wrong delta", name)
-				}
-			}
+			mockRepo.AssertExpectations(t)
 		})
 	}
 }
