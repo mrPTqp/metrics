@@ -13,7 +13,7 @@ import (
 type SigningTransport struct {
 	RoundTripper http.RoundTripper
 	SecretKey    string
-	Logger       *zap.SugaredLogger
+	Logger       *zap.Logger
 }
 
 func (st *SigningTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -47,7 +47,7 @@ func (st *SigningTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 	bodyBytes, err = io.ReadAll(resp.Body)
 	if err != nil {
-		st.Logger.Warnw("failed to read response body", "error", err)
+		st.Logger.Warn("failed to read response body", zap.Error(err))
 		return resp, nil
 	}
 	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Восстанавливаем тело

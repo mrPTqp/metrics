@@ -19,10 +19,10 @@ type FileStorage struct {
 	metricsProvider  MetricsProvider
 	syncBackupToFile bool
 	mu               sync.RWMutex
-	logger           *zap.SugaredLogger
+	logger           *zap.Logger
 }
 
-func NewFileStorage(producer *FileProducer, consumer *FileConsumer, metricsProvider MetricsProvider, syncBackupToFile bool, logger *zap.SugaredLogger) *FileStorage {
+func NewFileStorage(producer *FileProducer, consumer *FileConsumer, metricsProvider MetricsProvider, syncBackupToFile bool, logger *zap.Logger) *FileStorage {
 	return &FileStorage{
 		producer:         producer,
 		consumer:         consumer,
@@ -38,11 +38,13 @@ func (fs *FileStorage) Backup() error {
 
 	gauges, err := fs.metricsProvider.ListGauges(context.Background())
 	if err != nil {
+		fs.logger.Error("Failed to list gauges for backup", zap.Error(err))
 		return err
 	}
 
 	counters, err := fs.metricsProvider.ListCounters(context.Background())
 	if err != nil {
+		fs.logger.Error("Failed to list counters for backup", zap.Error(err))
 		return err
 	}
 
@@ -73,13 +75,13 @@ func (fs *FileStorage) backupAllMetrics(metricType, metricName string) {
 
 	gauges, err := fs.metricsProvider.ListGauges(context.Background())
 	if err != nil {
-		fs.logger.Errorf("failed to get gauges for backup: %v", err)
+		fs.logger.Error("Failed to get gauges for backup", zap.Error(err))
 		return
 	}
 
 	counters, err := fs.metricsProvider.ListCounters(context.Background())
 	if err != nil {
-		fs.logger.Errorf("failed to get counters for backup: %v", err)
+		fs.logger.Error("Failed to get counters for backup", zap.Error(err))
 		return
 	}
 
@@ -89,7 +91,10 @@ func (fs *FileStorage) backupAllMetrics(metricType, metricName string) {
 	}
 
 	if err := fs.producer.WriteData(data); err != nil {
-		fs.logger.Errorf("failed backup %s metric %s: %v", metricType, metricName, err)
+		fs.logger.Error("Failed to backup metrics",
+			zap.String("type", metricType),
+			zap.String("name", metricName),
+			zap.Error(err))
 	}
 }
 
@@ -134,7 +139,11 @@ func (fs *FileStorage) SaveAllMetrics(ctx context.Context, gauges map[string]flo
 		Counters: counters,
 	}
 
-	return fs.producer.WriteData(data)
+	err := fs.producer.WriteData(data)
+	if err != nil {
+		fs.logger.Error("Failed to save all metrics to file", zap.Error(err))
+	}
+	return err
 }
 
 func (fs *FileStorage) CheckStorageAvailability(ctx context.Context) bool {
@@ -142,6 +151,6 @@ func (fs *FileStorage) CheckStorageAvailability(ctx context.Context) bool {
 }
 
 func (fs *FileStorage) Close() error {
-	fs.logger.Infoln("FileStorage closed")
+	fs.logger.Info("FileStorage closed")
 	return nil
 }

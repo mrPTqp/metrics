@@ -7,6 +7,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/mrPTqp/metrics/internal/contextkey"
 	"github.com/mrPTqp/metrics/internal/server/service"
 	"github.com/mrPTqp/metrics/internal/server/storage"
 	"go.uber.org/zap"
@@ -15,10 +16,10 @@ import (
 type Restorer struct {
 	service service.MetricsService
 	storage *storage.FileStorage
-	logger  *zap.SugaredLogger
+	logger  *zap.Logger
 }
 
-func NewRestorer(service service.MetricsService, storage *storage.FileStorage, logger *zap.SugaredLogger) *Restorer {
+func NewRestorer(service service.MetricsService, storage *storage.FileStorage, logger *zap.Logger) *Restorer {
 	return &Restorer{
 		service: service,
 		storage: storage,
@@ -27,6 +28,7 @@ func NewRestorer(service service.MetricsService, storage *storage.FileStorage, l
 }
 
 func (r *Restorer) Restore(ctx context.Context) error {
+	log := contextkey.LoggerFromContext(ctx)
 	restoreCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -34,26 +36,28 @@ func (r *Restorer) Restore(ctx context.Context) error {
 	if err != nil {
 		var syntaxError *json.SyntaxError
 		if errors.Is(err, io.EOF) {
-			r.logger.Infoln("Snapshot file is empty, starting fresh")
+			log.Info("Snapshot file is empty, starting fresh")
 			return nil
 		}
 		if errors.As(err, &syntaxError) {
-			r.logger.Warn("Snapshot file is corrupted, starting fresh", zap.Error(err))
+			log.Warn("Snapshot file is corrupted, starting fresh", zap.Error(err))
 			return nil
 		}
-		r.logger.Fatalf("Failed to restore data: %v", err)
+		log.Fatal("Failed to restore data", zap.Error(err))
 	}
 
 	if len(gauges) == 0 && len(counters) == 0 {
-		r.logger.Infoln("No metrics found in snapshot, starting fresh")
+		log.Info("No metrics found in snapshot, starting fresh")
 		return nil
 	}
 
 	if err := r.service.SaveAllMetrics(restoreCtx, gauges, counters); err != nil {
-		r.logger.Errorf("Failed to load metrics into memory: %v", err)
+		log.Error("Failed to load metrics into memory", zap.Error(err))
 		return err
 	}
 
-	r.logger.Infof("Restore completed. Loaded %d gauges, %d counters", len(gauges), len(counters))
+	log.Info("Restore completed",
+		zap.Int("gauges", len(gauges)),
+		zap.Int("counters", len(counters)))
 	return nil
 }

@@ -6,56 +6,73 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/mrPTqp/metrics/internal/contextkey"
 	"github.com/mrPTqp/metrics/internal/signer"
 	"go.uber.org/zap"
 )
 
-func writeJSONError(w http.ResponseWriter, message string, statusCode int, logger *zap.SugaredLogger) {
+func writeJSONError(w http.ResponseWriter, message string, statusCode int, logger *zap.Logger) {
+	logger.Warn("Sending JSON error response",
+		zap.Int("status", statusCode),
+		zap.String("error", message))
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 
-func SignMiddleware(h http.HandlerFunc, key string, logger *zap.SugaredLogger) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var bodyContent []byte
-		var err error
+func SignMiddleware(key string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var bodyContent []byte
+			log := contextkey.LoggerFromContext(r.Context())
+			var err error
 
-		bodyContent, err = io.ReadAll(r.Body)
-		if err != nil {
-			logger.Errorw("failed to read request body", "error", err)
-			writeJSONError(w, "invalid request body", http.StatusBadRequest, logger)
-			return
-		}
-		r.Body = io.NopCloser(bytes.NewReader(bodyContent))
-
-		signHeader := r.Header.Get("HashSHA256")
-		if signHeader != "" {
-			if !signer.Verify(bodyContent, &signHeader, &key, logger) {
-				logger.Warn("invalid signature in request")
-				writeJSONError(w, "invalid signature", http.StatusBadRequest, logger)
+			bodyContent, err = io.ReadAll(r.Body)
+			if err != nil {
+				log.Error("Failed to read request body", zap.Error(err))
+				writeJSONError(w, "invalid request body", http.StatusBadRequest, log)
 				return
 			}
-		}
+			r.Body = io.NopCloser(bytes.NewReader(bodyContent))
 
-		ww := &responseWriter{ResponseWriter: w, body: &bytes.Buffer{}}
-		h.ServeHTTP(ww, r)
+			signHeader := r.Header.Get("HashSHA256")
+			if signHeader != "" {
+				if !signer.Verify(bodyContent, &signHeader, &key, log) {
+					log.Warn("Request signature verification failed",
+						zap.String("url", r.URL.String()),
+						zap.String("method", r.Method))
+					writeJSONError(w, "invalid signature", http.StatusBadRequest, log)
+					return
+				}
+				log.Debug("Request signature verified successfully",
+					zap.String("method", r.Method),
+					zap.String("url", r.URL.String()))
+			}
 
-		responseBody := ww.body.Bytes()
-		sign, err := signer.Sign(responseBody, &key)
-		logger.Debugf("sign ----------> %s", *sign)
-		if err != nil {
-			logger.Errorw("failed to sign response", "error", err)
-			writeJSONError(w, "failed to sign response", http.StatusInternalServerError, logger)
-			return
-		}
-		ww.Header().Set("HashSHA256", *sign)
+			ww := &responseWriter{ResponseWriter: w, body: &bytes.Buffer{}}
+			next.ServeHTTP(ww, r)
 
-		for k, v := range ww.Header() {
-			w.Header()[k] = v
-		}
-		w.WriteHeader(ww.code)
-		_, _ = w.Write(ww.body.Bytes())
+			responseBody := ww.body.Bytes()
+			sign, err := signer.Sign(responseBody, &key)
+			if err != nil {
+				log.Error("Failed to sign response", zap.Error(err))
+				writeJSONError(w, "failed to sign response", http.StatusInternalServerError, log)
+				return
+			}
+
+			log.Debug("Response signed successfully",
+				zap.String("hash", *sign),
+				zap.Int("body_size", len(responseBody)))
+
+			ww.Header().Set("HashSHA256", *sign)
+
+			for k, v := range ww.Header() {
+				w.Header()[k] = v
+			}
+			w.WriteHeader(ww.code)
+			_, _ = w.Write(ww.body.Bytes())
+		})
 	}
 }
 

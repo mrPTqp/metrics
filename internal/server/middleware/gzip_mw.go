@@ -5,23 +5,20 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+	"github.com/mrPTqp/metrics/internal/contextkey"
 )
 
-func GzipMiddleware(h http.HandlerFunc, logger *zap.SugaredLogger) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ow := w
+func GzipMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log := contextkey.LoggerFromContext(r.Context())
 
+		ow := w
 		acceptEncoding := r.Header.Get("Accept-Encoding")
-		logger.Debugf("accept encoding value %s", acceptEncoding)
 		supportsGzip := strings.Contains(acceptEncoding, "gzip")
-		logger.Debugf("supports gzip %b", supportsGzip)
 		if supportsGzip {
-			logger.Debug("try compress")
-			cw := newCompressWriter(w, supportsGzip, logger)
+			cw := newCompressWriter(w, supportsGzip, log)
 			ow = cw
-			defer func() {
-				cw.Close()
-			}()
+			defer cw.Close()
 		}
 
 		contentEncoding := r.Header.Get("Content-Encoding")
@@ -29,16 +26,14 @@ func GzipMiddleware(h http.HandlerFunc, logger *zap.SugaredLogger) http.HandlerF
 		if sendsGzip {
 			cr, err := newCompressReader(r.Body)
 			if err != nil {
-				logger.Error("error creating compress reader", zap.Error(err))
+				log.Error("Error creating compress reader", zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 			r.Body = cr
-			defer func() {
-				_ = cr.Close()
-			}()
+			defer cr.Close()
 		}
 
-		h.ServeHTTP(ow, r)
-	}
+		next.ServeHTTP(ow, r)
+	})
 }

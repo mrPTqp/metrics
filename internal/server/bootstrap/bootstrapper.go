@@ -1,4 +1,3 @@
-// internal/server/bootstrap/bootstrapper.go
 package bootstrap
 
 import (
@@ -21,35 +20,35 @@ import (
 
 type Bootstrapper struct {
 	cfg    *config.Config
-	logger *zap.SugaredLogger
+	logger *zap.Logger
 }
 
-func NewBootstrapper(cfg *config.Config, logger *zap.SugaredLogger) *Bootstrapper {
+func NewBootstrapper(cfg *config.Config, logger *zap.Logger) *Bootstrapper {
 	return &Bootstrapper{cfg: cfg, logger: logger}
 }
 
 func (bs *Bootstrapper) MustRun(ctx context.Context) *AppComponents {
-	bs.logger.Infoln("Starting application bootstrap...")
+	bs.logger.Info("Starting application bootstrap...")
 
 	var mr repository.MetricRepository
 	if bs.cfg.DatabaseDsn != nil && *bs.cfg.DatabaseDsn != "" {
-		var err error
-		bs.logger.Infoln("Applying database migrations...")
-		if err = migrations.RunMigrations(*bs.cfg.DatabaseDsn, bs.logger); err != nil {
-			bs.logger.Panicf("Migration failed: %v", err)
+		bs.logger.Info("Applying database migrations...")
+		if err := migrations.RunMigrations(*bs.cfg.DatabaseDsn, bs.logger); err != nil {
+			bs.logger.Fatal("Migration failed", zap.Error(err))
 		}
-		bs.logger.Infoln("Migrations applied successfully or no changes")
+		bs.logger.Info("Migrations applied successfully or no changes")
 
+		var err error
 		mr, err = storage.NewPostgresStorage(*bs.cfg.DatabaseDsn, bs.logger)
 		if err != nil {
-			bs.logger.Panic("init postgres error", err)
+			bs.logger.Fatal("Init postgres storage error", zap.Error(err))
 		}
 
 		checkCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		ok := mr.CheckStorageAvailability(checkCtx)
 		cancel()
 		if !ok {
-			bs.logger.Panic("postgres connection error")
+			bs.logger.Fatal("Postgres connection check failed")
 		}
 	} else {
 		mr = storage.NewMemStorage()
@@ -69,27 +68,24 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) *AppComponents {
 		b = backup.NewBackuper(ms, fsr, bs.logger)
 	}
 
-	var r *backup.Restorer
 	if bs.cfg.Restore {
-		r = backup.NewRestorer(ms, fsr, bs.logger)
-
+		r := backup.NewRestorer(ms, fsr, bs.logger)
 		restoreCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		err := r.Restore(restoreCtx)
 		cancel()
 		if err != nil {
-			bs.logger.Errorf("Failed to restore metrics: %v", err)
+			bs.logger.Error("Failed to restore metrics", zap.Error(err))
 		}
 	}
 
 	mh := handler.NewMetricHandler(ms, bs.logger)
-	mws := []func(h http.HandlerFunc, logger *zap.SugaredLogger) http.HandlerFunc{
-		middleware.LoggingMiddleware,
+
+	mws := []func(http.Handler) http.Handler{
+		middleware.LoggingMiddleware(bs.logger),
 	}
 
 	if bs.cfg.SecretKey != nil && *bs.cfg.SecretKey != "" {
-		mws = append(mws, func(h http.HandlerFunc, logger *zap.SugaredLogger) http.HandlerFunc {
-			return middleware.SignMiddleware(h, *bs.cfg.SecretKey, bs.logger)
-		})
+		mws = append(mws, middleware.SignMiddleware(*bs.cfg.SecretKey))
 	}
 
 	mws = append(mws, middleware.GzipMiddleware)
@@ -97,7 +93,7 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) *AppComponents {
 	return &AppComponents{
 		Config:      bs.cfg,
 		Logger:      bs.logger,
-		Repo:        mr, 
+		Repo:        mr,
 		Backuper:    b,
 		Handler:     mh,
 		Middlewares: mws,
@@ -106,9 +102,9 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) *AppComponents {
 
 type AppComponents struct {
 	Config      *config.Config
-	Logger      *zap.SugaredLogger
-	Repo        repository.MetricRepository 
+	Logger      *zap.Logger
+	Repo        repository.MetricRepository
 	Handler     *handler.MetricHandler
 	Backuper    *backup.Backuper
-	Middlewares []func(h http.HandlerFunc, logger *zap.SugaredLogger) http.HandlerFunc
+	Middlewares []func(http.Handler) http.Handler
 }

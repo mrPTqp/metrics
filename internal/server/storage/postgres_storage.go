@@ -10,17 +10,18 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/mrPTqp/metrics/internal/retry"
+	"github.com/mrPTqp/metrics/internal/contextkey"
 )
 
 var ErrMetricNotFound = errors.New("metric not found")
 
 type PostgresStorage struct {
 	DB         *sql.DB
-	logger     *zap.SugaredLogger
+	logger     *zap.Logger
 	classifier *PostgresErrorClassifier
 }
 
-func NewPostgresStorage(databaseDsn string, logger *zap.SugaredLogger) (*PostgresStorage, error) {
+func NewPostgresStorage(databaseDsn string, logger *zap.Logger) (*PostgresStorage, error) {
 	db, err := sql.Open("pgx", databaseDsn)
 	if err != nil {
 		return nil, err
@@ -34,10 +35,17 @@ func NewPostgresStorage(databaseDsn string, logger *zap.SugaredLogger) (*Postgre
 }
 
 func (ps *PostgresStorage) doWithRetry(ctx context.Context, operation func(context.Context) error) error {
+	log := contextkey.LoggerFromContext(ctx)
 	return retry.DoWithRetry(
 		ctx,
 		ps.classifier,
-		func() error { return operation(ctx) },
+		func() error {
+			err := operation(ctx)
+			if err != nil {
+				log.Warn("Operation failed, retrying...", zap.Error(err))
+			}
+			return err
+		},
 		3,
 		1*time.Second,
 	)
@@ -48,7 +56,8 @@ func (ps *PostgresStorage) CheckConnection(ctx context.Context) error {
 }
 
 func (ps *PostgresStorage) SaveGauge(ctx context.Context, name string, value *float64) error {
-	return ps.doWithRetry(ctx, func(ctx context.Context) error {
+	log := contextkey.LoggerFromContext(ctx)
+	err := ps.doWithRetry(ctx, func(ctx context.Context) error {
 		_, err := ps.DB.ExecContext(ctx, `
 			INSERT INTO gauges (name, value) 
 			VALUES ($1, $2) 
@@ -57,10 +66,15 @@ func (ps *PostgresStorage) SaveGauge(ctx context.Context, name string, value *fl
 			name, value)
 		return err
 	})
+	if err != nil {
+		log.Error("Failed to save gauge", zap.String("name", name), zap.Error(err))
+	}
+	return err
 }
 
 func (ps *PostgresStorage) SaveCounter(ctx context.Context, name string, value *int64) error {
-	return ps.doWithRetry(ctx, func(ctx context.Context) error {
+	log := contextkey.LoggerFromContext(ctx)
+	err := ps.doWithRetry(ctx, func(ctx context.Context) error {
 		_, err := ps.DB.ExecContext(ctx, `
 			INSERT INTO counters (name, value) 
 			VALUES ($1, $2) 
@@ -69,9 +83,14 @@ func (ps *PostgresStorage) SaveCounter(ctx context.Context, name string, value *
 			name, value)
 		return err
 	})
+	if err != nil {
+		log.Error("Failed to save counter", zap.String("name", name), zap.Error(err))
+	}
+	return err
 }
 
 func (ps *PostgresStorage) GetGauge(ctx context.Context, name string) (float64, error) {
+	log := contextkey.LoggerFromContext(ctx)
 	var value sql.NullFloat64
 	err := ps.doWithRetry(ctx, func(ctx context.Context) error {
 		return ps.DB.QueryRowContext(ctx, `SELECT value FROM gauges WHERE name = $1`, name).Scan(&value)
@@ -80,15 +99,18 @@ func (ps *PostgresStorage) GetGauge(ctx context.Context, name string) (float64, 
 		if errors.Is(err, sql.ErrNoRows) || !value.Valid {
 			return 0, ErrMetricNotFound
 		}
+		log.Error("Failed to get gauge", zap.String("name", name), zap.Error(err))
 		return 0, err
 	}
 	if !value.Valid {
 		return 0, ErrMetricNotFound
 	}
+	log.Info("Got gauge", zap.String("name", name), zap.Float64("value", value.Float64))
 	return value.Float64, nil
 }
 
 func (ps *PostgresStorage) GetCounter(ctx context.Context, name string) (int64, error) {
+	log := contextkey.LoggerFromContext(ctx)
 	var value sql.NullInt64
 	err := ps.doWithRetry(ctx, func(ctx context.Context) error {
 		return ps.DB.QueryRowContext(ctx, `SELECT value FROM counters WHERE name = $1`, name).Scan(&value)
@@ -97,17 +119,21 @@ func (ps *PostgresStorage) GetCounter(ctx context.Context, name string) (int64, 
 		if errors.Is(err, sql.ErrNoRows) || !value.Valid {
 			return 0, ErrMetricNotFound
 		}
+		log.Error("Failed to get counter", zap.String("name", name), zap.Error(err))
 		return 0, err
 	}
 	if !value.Valid {
 		return 0, ErrMetricNotFound
 	}
+	log.Info("Got counter", zap.String("name", name), zap.Int64("value", value.Int64))
 	return value.Int64, nil
 }
 
 func (ps *PostgresStorage) ListGauges(ctx context.Context) (map[string]float64, error) {
+	log := contextkey.LoggerFromContext(ctx)
 	rows, err := ps.DB.QueryContext(ctx, "SELECT name, value FROM gauges")
 	if err != nil {
+		log.Error("Failed to query gauges", zap.Error(err))
 		return nil, err
 	}
 	defer rows.Close()
@@ -117,18 +143,24 @@ func (ps *PostgresStorage) ListGauges(ctx context.Context) (map[string]float64, 
 		var name string
 		var value sql.NullFloat64
 		if err := rows.Scan(&name, &value); err != nil {
-			return nil, err
+			log.Error("Failed to scan gauge row", zap.Error(err))
+			continue
 		}
 		if value.Valid {
 			result[name] = value.Float64
 		}
 	}
-	return result, rows.Err()
+	if err = rows.Err(); err != nil {
+		log.Error("Error iterating gauge rows", zap.Error(err))
+	}
+	return result, err
 }
 
 func (ps *PostgresStorage) ListCounters(ctx context.Context) (map[string]int64, error) {
+	log := contextkey.LoggerFromContext(ctx)
 	rows, err := ps.DB.QueryContext(ctx, "SELECT name, value FROM counters")
 	if err != nil {
+		log.Error("Failed to query counters", zap.Error(err))
 		return nil, err
 	}
 	defer rows.Close()
@@ -138,17 +170,22 @@ func (ps *PostgresStorage) ListCounters(ctx context.Context) (map[string]int64, 
 		var name string
 		var value sql.NullInt64
 		if err := rows.Scan(&name, &value); err != nil {
-			return nil, err
+			log.Error("Failed to scan counter row", zap.Error(err))
+			continue
 		}
 		if value.Valid {
 			result[name] = value.Int64
 		}
 	}
-	return result, rows.Err()
+	if err = rows.Err(); err != nil {
+		log.Error("Error iterating counter rows", zap.Error(err))
+	}
+	return result, err
 }
 
 func (ps *PostgresStorage) SaveAllMetrics(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
-	return ps.doWithRetry(ctx, func(ctx context.Context) error {
+	log := contextkey.LoggerFromContext(ctx)
+	err := ps.doWithRetry(ctx, func(ctx context.Context) error {
 		tx, err := ps.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return err
@@ -181,21 +218,33 @@ func (ps *PostgresStorage) SaveAllMetrics(ctx context.Context, gauges map[string
 
 		return tx.Commit()
 	})
+	if err != nil {
+		log.Error("Failed to save all metrics", zap.Error(err))
+	}
+	return err
 }
 
 func (ps *PostgresStorage) CheckStorageAvailability(ctx context.Context) bool {
 	checkCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	return ps.CheckConnection(checkCtx) == nil
+	err := ps.CheckConnection(checkCtx)
+	log := contextkey.LoggerFromContext(ctx)
+	if err != nil {
+		log.Warn("Database connection check failed", zap.Error(err))
+		return false
+	}
+	return true
 }
 
 func (ps *PostgresStorage) Close() error {
+	log := ps.logger 
 	if ps.DB != nil {
 		err := ps.DB.Close()
 		if err != nil {
+			log.Error("Failed to close Postgres DB", zap.Error(err))
 			return err
 		}
 	}
-	ps.logger.Infoln("Postgres storage closed")
+	log.Info("Postgres storage closed")
 	return nil
 }

@@ -4,15 +4,16 @@ import (
 	"context"
 	"go.uber.org/zap"
 
+	"github.com/mrPTqp/metrics/internal/contextkey"
 	"github.com/mrPTqp/metrics/internal/server/repository"
 )
 
 type BaseMetricService struct {
 	repo   repository.MetricRepository
-	logger *zap.SugaredLogger
+	logger *zap.Logger
 }
 
-func NewMetricsService(repo repository.MetricRepository, logger *zap.SugaredLogger) *BaseMetricService {
+func NewMetricsService(repo repository.MetricRepository, logger *zap.Logger) *BaseMetricService {
 	return &BaseMetricService{
 		repo:   repo,
 		logger: logger,
@@ -24,7 +25,8 @@ func (ms *BaseMetricService) SaveGaugeMetric(ctx context.Context, mName string, 
 	if err != nil {
 		return err
 	}
-	ms.logger.Infof("Saved gauge: %s = %f", mName, *mValue)
+	log := contextkey.LoggerFromContext(ctx)
+	log.Info("Saved gauge", zap.String("name", mName), zap.Float64("value", *mValue))
 	return nil
 }
 
@@ -33,7 +35,8 @@ func (ms *BaseMetricService) SaveCounterMetric(ctx context.Context, mName string
 	if err != nil {
 		return err
 	}
-	ms.logger.Infof("Saved counter: %s = %d", mName, *mValue)
+	log := contextkey.LoggerFromContext(ctx)
+	log.Info("Saved counter", zap.String("name", mName), zap.Int64("value", *mValue))
 	return nil
 }
 
@@ -42,7 +45,8 @@ func (ms *BaseMetricService) GetGaugeMetric(ctx context.Context, mName string) (
 	if err != nil {
 		return 0, err
 	}
-	ms.logger.Infof("Retrieved gauge: %s = %f", mName, mValue)
+	log := contextkey.LoggerFromContext(ctx)
+	log.Info("Retrieved gauge", zap.String("name", mName), zap.Float64("value", mValue))
 	return mValue, nil
 }
 
@@ -51,20 +55,23 @@ func (ms *BaseMetricService) GetCounterMetric(ctx context.Context, mName string)
 	if err != nil {
 		return 0, err
 	}
-	ms.logger.Infof("Retrieved counter: %s = %d", mName, mValue)
+	log := contextkey.LoggerFromContext(ctx)
+	log.Info("Retrieved counter", zap.String("name", mName), zap.Int64("value", mValue))
 	return mValue, nil
 }
 
 func (ms *BaseMetricService) ListAllMetrics(ctx context.Context) (map[string]float64, map[string]int64) {
 	gauges, err := ms.repo.ListGauges(ctx)
 	if err != nil {
-		ms.logger.Errorf("Failed to list gauges: %v", err)
+		log := contextkey.LoggerFromContext(ctx)
+		log.Error("Failed to list gauges", zap.Error(err))
 		gauges = make(map[string]float64)
 	}
 
 	counters, err := ms.repo.ListCounters(ctx)
 	if err != nil {
-		ms.logger.Errorf("Failed to list counters: %v", err)
+		log := contextkey.LoggerFromContext(ctx)
+		log.Error("Failed to list counters", zap.Error(err))
 		counters = make(map[string]int64)
 	}
 

@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func RunMigrations(dsn string, sugar *zap.SugaredLogger) error {
+func RunMigrations(dsn string, logger *zap.Logger) error {
 	m, err := migrate.New("file://migrations", dsn)
 	if err != nil {
 		return err
@@ -15,19 +15,19 @@ func RunMigrations(dsn string, sugar *zap.SugaredLogger) error {
 	defer m.Close()
 
 	current, _, _ := m.Version()
-	sugar.Infof("Current migration version: %d", current)
+	logger.Info("Current migration version", zap.Uint("version", current))
 
 	if err := m.Up(); err != nil {
 		if err == migrate.ErrNoChange {
-			sugar.Infoln("No migrations to apply")
+			logger.Info("No migrations to apply")
 			return nil
 		}
 
-		sugar.Errorf("Migration error: %v. Attempting rollback...", err)
+		logger.Error("Migration error, attempting rollback...", zap.Error(err))
 		if rollbackErr := m.Down(); rollbackErr != nil {
-			sugar.Errorf("Rollback after migration failure failed: %v", rollbackErr)
+			logger.Error("Rollback after migration failure failed", zap.Error(rollbackErr))
 		} else {
-			sugar.Infoln("Rollback after migration failure succeeded")
+			logger.Info("Rollback after migration failure succeeded")
 		}
 
 		return err
@@ -35,9 +35,9 @@ func RunMigrations(dsn string, sugar *zap.SugaredLogger) error {
 
 	newVersion, _, _ := m.Version()
 	if newVersion > current {
-		sugar.Infof("Successfully migrated to version %d", newVersion)
+		logger.Info("Successfully migrated", zap.Uint("from", current), zap.Uint("to", newVersion))
 	} else {
-		sugar.Infoln("No new migrations found")
+		logger.Info("No new migrations found")
 	}
 
 	return nil

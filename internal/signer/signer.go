@@ -25,9 +25,9 @@ func computeHMAC(content []byte, secretKey *string) (*string, error) {
 	return &hmac, nil
 }
 
-func Verify(content []byte, hmac *string, secretKey *string, logger *zap.SugaredLogger) bool {
+func Verify(content []byte, hmac *string, secretKey *string, logger *zap.Logger) bool {
 	if h, err := computeHMAC(content, secretKey); err != nil {
-		logger.Errorw("failed to compute HMAC", err)
+		logger.Error("failed to compute HMAC", zap.Error(err))
 		return false
 	} else {
 		if hmac == nil || h == nil {
@@ -35,7 +35,10 @@ func Verify(content []byte, hmac *string, secretKey *string, logger *zap.Sugared
 			return false
 		}
 		if *hmac != *h {
-			logger.Infof("signature mismatch:\nexpected: %s\nreceived: %s", *h, *hmac)
+			logger.Info("signature mismatch",
+				zap.String("expected", *h),
+				zap.String("received", *hmac),
+			)
 		}
 		return *hmac == *h
 	}

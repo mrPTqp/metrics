@@ -4,16 +4,17 @@ import (
 	"context"
 	"go.uber.org/zap"
 
+	"github.com/mrPTqp/metrics/internal/contextkey"
 	"github.com/mrPTqp/metrics/internal/server/repository"
 )
 
 type FileBackupService struct {
 	service MetricsService
 	repo    repository.MetricRepository
-	logger  *zap.SugaredLogger
+	logger  *zap.Logger
 }
 
-func NewFileBackupService(service MetricsService, repo repository.MetricRepository, logger *zap.SugaredLogger) *FileBackupService {
+func NewFileBackupService(service MetricsService, repo repository.MetricRepository, logger *zap.Logger) *FileBackupService {
 	return &FileBackupService{
 		service: service,
 		repo:    repo,
@@ -22,21 +23,23 @@ func NewFileBackupService(service MetricsService, repo repository.MetricReposito
 }
 
 func (d *FileBackupService) SaveGaugeMetric(ctx context.Context, mName string, mValue *float64) error {
+	log := contextkey.LoggerFromContext(ctx)
 	if err := d.service.SaveGaugeMetric(ctx, mName, mValue); err != nil {
 		return err
 	}
 	if err := d.repo.SaveGauge(ctx, mName, mValue); err != nil {
-		d.logger.Warnw("Failed to backup gauge to file", "name", mName, "error", err)
+		log.Warn("Failed to backup gauge to file", zap.String("name", mName), zap.Error(err))
 	}
 	return nil
 }
 
 func (d *FileBackupService) SaveCounterMetric(ctx context.Context, mName string, mValue *int64) error {
+	log := contextkey.LoggerFromContext(ctx)
 	if err := d.service.SaveCounterMetric(ctx, mName, mValue); err != nil {
 		return err
 	}
 	if err := d.repo.SaveCounter(ctx, mName, mValue); err != nil {
-		d.logger.Warnw("Failed to backup counter to file", "name", mName, "error", err)
+		log.Warn("Failed to backup counter to file", zap.String("name", mName), zap.Error(err))
 	}
 	return nil
 }

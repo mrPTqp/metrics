@@ -19,10 +19,10 @@ type MetricsAgent struct {
 	ec         *HTTPErrorClassifier
 	cfg        *config.Config
 	repository repository.MetricRepository
-	logger     *zap.SugaredLogger
+	logger     *zap.Logger
 }
 
-func NewMetricsAgent(client *http.Client, cfg *config.Config, repository repository.MetricRepository, logger *zap.SugaredLogger) *MetricsAgent {
+func NewMetricsAgent(client *http.Client, cfg *config.Config, repository repository.MetricRepository, logger *zap.Logger) *MetricsAgent {
 	return &MetricsAgent{
 		c:          client,
 		ec:         NewHTTPErrorClassifier(),
@@ -52,7 +52,7 @@ func (ma *MetricsAgent) SendMetrics() {
 	additionalGauges := ma.repository.GetAdditionalGaugeMetrics()
 
 	if len(gauges) == 0 && len(counters) == 0 && len(additionalGauges) == 0 {
-		ma.logger.Infoln("gauges and counters are empty")
+		ma.logger.Info("gauges and counters are empty")
 		return
 	}
 
@@ -87,18 +87,20 @@ func (ma *MetricsAgent) SendMetrics() {
 
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
-		ma.logger.Errorf("failed to marshal metrics: %v", err)
+		ma.logger.Error("failed to marshal metrics", zap.Error(err))
 		return
 	}
 
 	compressedBody, err := Compress(jsonBody)
 	if err != nil {
+		ma.logger.Error("failed to compress metrics", zap.Error(err))
 		return
 	}
 
 	url := "http://" + address.String() + "/updates"
 	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(compressedBody))
 	if err != nil {
+		ma.logger.Error("failed to create HTTP request", zap.Error(err))
 		return
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -123,13 +125,16 @@ func (ma *MetricsAgent) SendMetrics() {
 		1*time.Second,
 	)
 	if err != nil {
+		ma.logger.Error("failed to send metrics after retries", zap.Error(err))
 		return
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		ma.logger.Errorf("HTTP request failed with status: %d", resp.StatusCode)
+		ma.logger.Error("HTTP request failed",
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("url", url))
 		return
 	}
 
-	ma.logger.Infoln("Metrics successfully sent to server")
+	ma.logger.Info("Metrics successfully sent to server")
 }
