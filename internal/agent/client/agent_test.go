@@ -48,7 +48,7 @@ func (m *MockRepository) GetAdditionalGaugeMetrics() map[string]float64 {
 }
 
 func TestMetricsAgent_PollMetrics(t *testing.T) {
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	cfg := &config.Config{ReportInterval: 10, PollInterval: 2}
 
 	tests := []struct {
@@ -98,7 +98,7 @@ func TestMetricsAgent_PollMetrics(t *testing.T) {
 }
 
 func TestMetricsAgent_SendMetrics(t *testing.T) {
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	cfg := &config.Config{
 		Address: models.NetAddress{Host: "localhost", Port: 8080},
 	}
