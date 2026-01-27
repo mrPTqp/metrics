@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+
 	"github.com/mrPTqp/metrics/internal/models"
 	"go.uber.org/zap"
-	"net/http"
 )
 
 func (mh *MetricHandler) SaveMetricHandlerJSON(w http.ResponseWriter, r *http.Request) {
@@ -25,9 +27,9 @@ func (mh *MetricHandler) SaveMetricHandlerJSON(w http.ResponseWriter, r *http.Re
 
 	switch req.MType {
 	case "gauge":
-		mh.handleSaveGaugeJSON(w, req)
+		mh.handleSaveGaugeJSON(w, r.Context(), req)
 	case "counter":
-		mh.handleSaveCounterJSON(w, req)
+		mh.handleSaveCounterJSON(w, r.Context(), req)
 	default:
 		mh.logger.Error("Unsupported metric type: %s", req.MType)
 		mh.writeJSONError(w, "unsupported metric type", http.StatusBadRequest)
@@ -74,25 +76,24 @@ func (mh *MetricHandler) SaveMetricsHandlerJSON(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	err := mh.service.SaveAllMetrics(gauges, counters)
+	err := mh.service.SaveAllMetrics(r.Context(), gauges, counters)
 	if err != nil {
 		mh.logger.Error("Error processing metrics", zap.Any("gauges", gauges), zap.Any("counters", counters), zap.Error(err))
-		mh.writeJSONError(w, "processing metricы failed", http.StatusBadRequest)
+		mh.writeJSONError(w, "processing metrics failed", http.StatusBadRequest)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-
 }
 
-func (mh *MetricHandler) handleSaveGaugeJSON(w http.ResponseWriter, req models.Metrics) {
+func (mh *MetricHandler) handleSaveGaugeJSON(w http.ResponseWriter, ctx context.Context, req models.Metrics) {
 	if req.Value == nil {
 		mh.logger.Error("missing 'value' for gauge metric %s", req.ID)
 		mh.writeJSONError(w, "missing value for gauge", http.StatusBadRequest)
 		return
 	}
 
-	err := mh.service.SaveGaugeMetric(req.ID, req.Value)
+	err := mh.service.SaveGaugeMetric(ctx, req.ID, req.Value)
 	if err != nil {
 		mh.logger.Error("Error processing gauge metric: %s - %v", req.ID, *req.Value, zap.Error(err))
 		mh.writeJSONError(w, "processing gauge metric failed", http.StatusBadRequest)
@@ -107,14 +108,14 @@ func (mh *MetricHandler) handleSaveGaugeJSON(w http.ResponseWriter, req models.M
 	mh.writeJSONResponse(w, resp, http.StatusOK)
 }
 
-func (mh *MetricHandler) handleSaveCounterJSON(w http.ResponseWriter, req models.Metrics) {
+func (mh *MetricHandler) handleSaveCounterJSON(w http.ResponseWriter, ctx context.Context, req models.Metrics) {
 	if req.Delta == nil {
 		mh.logger.Error("missing 'delta' for counter metric %s", req.ID)
 		mh.writeJSONError(w, "missing value for counter", http.StatusBadRequest)
 		return
 	}
 
-	err := mh.service.SaveCounterMetric(req.ID, req.Delta)
+	err := mh.service.SaveCounterMetric(ctx, req.ID, req.Delta)
 	if err != nil {
 		mh.logger.Error("Error processing counter metric: %s - %v", req.ID, *req.Delta, zap.Error(err))
 		mh.writeJSONError(w, "processing counter metric failed", http.StatusBadRequest)
@@ -147,17 +148,17 @@ func (mh *MetricHandler) ValueMetricHandlerJSON(w http.ResponseWriter, r *http.R
 
 	switch req.MType {
 	case "gauge":
-		mh.handleGetGaugeJSON(w, req)
+		mh.handleGetGaugeJSON(w, r.Context(), req)
 	case "counter":
-		mh.handleGetCounterJSON(w, req)
+		mh.handleGetCounterJSON(w, r.Context(), req)
 	default:
 		mh.logger.Error("Unsupported metric type: %s", req.MType)
 		mh.writeJSONError(w, "unsupported metric type", http.StatusBadRequest)
 	}
 }
 
-func (mh *MetricHandler) handleGetGaugeJSON(w http.ResponseWriter, req models.Metrics) {
-	value, err := mh.service.GetGaugeMetric(req.ID)
+func (mh *MetricHandler) handleGetGaugeJSON(w http.ResponseWriter, ctx context.Context, req models.Metrics) {
+	value, err := mh.service.GetGaugeMetric(ctx, req.ID)
 	if err != nil {
 		mh.logger.Error("Error getting gauge metric: %s", req.ID, zap.Error(err))
 		mh.writeJSONError(w, "gauge not found", http.StatusNotFound)
@@ -170,11 +171,11 @@ func (mh *MetricHandler) handleGetGaugeJSON(w http.ResponseWriter, req models.Me
 		Value: &value,
 	}
 	mh.writeJSONResponse(w, resp, http.StatusOK)
-	mh.logger.Info("return gauge metric %s value %f", req.ID, value)
+	mh.logger.Infof("return gauge metric %s value %f", req.ID, value)
 }
 
-func (mh *MetricHandler) handleGetCounterJSON(w http.ResponseWriter, req models.Metrics) {
-	value, err := mh.service.GetCounterMetric(req.ID)
+func (mh *MetricHandler) handleGetCounterJSON(w http.ResponseWriter, ctx context.Context, req models.Metrics) {
+	value, err := mh.service.GetCounterMetric(ctx, req.ID)
 	if err != nil {
 		mh.logger.Error("Error getting counter metric: %s", req.ID, zap.Error(err))
 		mh.writeJSONError(w, "counter not found", http.StatusNotFound)
@@ -187,7 +188,7 @@ func (mh *MetricHandler) handleGetCounterJSON(w http.ResponseWriter, req models.
 		Delta: &value,
 	}
 	mh.writeJSONResponse(w, resp, http.StatusOK)
-	mh.logger.Info("return counter metric %s value %d", req.ID, value)
+	mh.logger.Infof("return counter metric %s value %d", req.ID, value)
 }
 
 func (mh *MetricHandler) writeJSONError(w http.ResponseWriter, message string, status int) {

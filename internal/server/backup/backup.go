@@ -1,6 +1,9 @@
 package backup
 
 import (
+	"context"
+	"time"
+
 	"github.com/mrPTqp/metrics/internal/server/service"
 	"github.com/mrPTqp/metrics/internal/server/storage"
 	"go.uber.org/zap"
@@ -20,13 +23,18 @@ func NewBackuper(service service.MetricsService, storage *storage.FileStorage, l
 	}
 }
 
-func (b *Backuper) Backup() {
-	gauges, counters := b.service.ListAllMetrics()
+func (b *Backuper) Backup(ctx context.Context) error {
+	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
-	err := b.storage.SaveAllMetrics(gauges, counters)
+	gauges, counters := b.service.ListAllMetrics(timeoutCtx)
+
+	err := b.storage.SaveAllMetrics(timeoutCtx, gauges, counters)
 	if err != nil {
 		b.logger.Errorf("Failed to save metrics: %v", err)
-	} else {
-		b.logger.Info("Metrics saved successfully")
+		return err
 	}
+
+	b.logger.Infoln("Metrics saved successfully")
+	return nil
 }

@@ -19,7 +19,7 @@ func RunMigrations(dsn string, sugar *zap.SugaredLogger) error {
 
 	if err := m.Up(); err != nil {
 		if err == migrate.ErrNoChange {
-			sugar.Info("No migrations to apply")
+			sugar.Infoln("No migrations to apply")
 			return nil
 		}
 
@@ -27,7 +27,7 @@ func RunMigrations(dsn string, sugar *zap.SugaredLogger) error {
 		if rollbackErr := m.Down(); rollbackErr != nil {
 			sugar.Errorf("Rollback after migration failure failed: %v", rollbackErr)
 		} else {
-			sugar.Info("Rollback after migration failure succeeded")
+			sugar.Infoln("Rollback after migration failure succeeded")
 		}
 
 		return err
@@ -37,7 +37,7 @@ func RunMigrations(dsn string, sugar *zap.SugaredLogger) error {
 	if newVersion > current {
 		sugar.Infof("Successfully migrated to version %d", newVersion)
 	} else {
-		sugar.Info("No new migrations found")
+		sugar.Infoln("No new migrations found")
 	}
 
 	return nil

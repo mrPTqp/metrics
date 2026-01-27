@@ -55,7 +55,7 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	sugar.Info("Shutdown signal received")
-	sugar.Info("Waiting for scheduler to finish...")
-	sugar.Info("Agent stopped gracefully")
+	sugar.Infoln("Shutdown signal received")
+	sugar.Infoln("Waiting for scheduler to finish...")
+	sugar.Infoln("Agent stopped gracefully")
 }

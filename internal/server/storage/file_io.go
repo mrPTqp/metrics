@@ -49,7 +49,7 @@ func (fp *FileProducer) WriteData(data snapshotData) error {
 		return err
 	}
 
-	fp.logger.Info("Backup completed", zap.String("file", fp.filePath))
+	fp.logger.Infow("Backup completed", zap.String("file", fp.filePath))
 	return nil
 }
 
@@ -78,7 +78,7 @@ func (fc *FileConsumer) ReadData() (snapshotData, error) {
 	file, err := os.Open(fc.filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fc.logger.Info("No snapshot file, starting fresh")
+			fc.logger.Infoln("No snapshot file, starting fresh")
 			return data, nil
 		}
 		return data, err
@@ -103,10 +103,10 @@ func (fc *FileConsumer) CheckFileAccess() bool {
 	_, err := os.Stat(fc.filePath)
 	if err != nil {
 		if os.IsNotExist(err) || os.IsPermission(err) {
-			fc.logger.Info("File is not available", zap.String("file", fc.filePath), zap.Error(err))
+			fc.logger.Infoln("File is not available", zap.String("file", fc.filePath), zap.Error(err))
 			return false
 		}
-		fc.logger.Info("Error accessing file", zap.String("file", fc.filePath), zap.Error(err))
+		fc.logger.Infoln("Error accessing file", zap.String("file", fc.filePath), zap.Error(err))
 		return false
 	}
 	return true

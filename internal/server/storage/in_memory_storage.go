@@ -1,96 +1,100 @@
 package storage
 
 import (
-	"fmt"
+	"context"
+	"errors"
+	"maps"
 	"sync"
-
-	"go.uber.org/zap"
 )
 
 type MemStorage struct {
-	gauges   map[string]float64
-	counters map[string]int64
-	logger   *zap.SugaredLogger
-	mu       sync.RWMutex
+	gauges           map[string]float64
+	counters         map[string]int64
+	additionalGauges map[string]float64
+	mu               sync.RWMutex
 }
 
-func NewMemStorage(logger *zap.SugaredLogger) *MemStorage {
+func NewMemStorage() *MemStorage {
 	return &MemStorage{
-		gauges:   make(map[string]float64),
-		counters: make(map[string]int64),
-		logger:   logger,
+		gauges:           make(map[string]float64),
+		counters:         make(map[string]int64),
+		additionalGauges: make(map[string]float64),
 	}
 }
 
-func (s *MemStorage) SaveGauge(key string, value *float64) error {
+func (s *MemStorage) SaveGauge(_ context.Context, name string, value *float64) error {
+	if name == "" || value == nil {
+		return errors.New("invalid gauge metric: empty name or nil value")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.gauges[key] = *value
+	s.gauges[name] = *value
 	return nil
 }
 
-func (s *MemStorage) SaveCounter(key string, value *int64) error {
+func (s *MemStorage) SaveCounter(_ context.Context, name string, value *int64) error {
+	if name == "" || value == nil {
+		return errors.New("invalid counter metric: empty name or nil value")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.counters[key] += *value
+	s.counters[name] += *value
 	return nil
 }
 
-func (s *MemStorage) GetGauge(key string) (float64, error) {
+func (s *MemStorage) GetGauge(_ context.Context, name string) (float64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if val, ok := s.gauges[key]; ok {
+	if val, ok := s.gauges[name]; ok {
 		return val, nil
-	} else {
-		return 0, fmt.Errorf("gauge %s not found", key)
 	}
+	return 0, ErrMetricNotFound
 }
 
-func (s *MemStorage) GetCounter(key string) (int64, error) {
+func (s *MemStorage) GetCounter(_ context.Context, name string) (int64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if val, ok := s.counters[key]; ok {
+	if val, ok := s.counters[name]; ok {
 		return val, nil
+	}
+	return 0, ErrMetricNotFound
+}
+
+func (s *MemStorage) ListGauges(_ context.Context) (map[string]float64, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return maps.Clone(s.gauges), nil
+}
+
+func (s *MemStorage) ListCounters(_ context.Context) (map[string]int64, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return maps.Clone(s.counters), nil
+}
+
+func (s *MemStorage) SaveAllMetrics(_ context.Context, gauges map[string]float64, counters map[string]int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if gauges == nil {
+		s.gauges = make(map[string]float64)
 	} else {
-		return 0, fmt.Errorf("counter %s not found", key)
+		s.gauges = maps.Clone(gauges)
 	}
-}
 
-func (s *MemStorage) ListGauges() (map[string]float64, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	copyMap := make(map[string]float64, len(s.gauges))
-	for k, v := range s.gauges {
-		copyMap[k] = v
+	if counters == nil {
+		s.counters = make(map[string]int64)
+	} else {
+		s.counters = maps.Clone(counters)
 	}
-	return copyMap, nil
-}
 
-func (s *MemStorage) ListCounters() (map[string]int64, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	copyMap := make(map[string]int64, len(s.counters))
-	for k, v := range s.counters {
-		copyMap[k] = v
-	}
-	return copyMap, nil
-}
-
-func (s *MemStorage) SaveAllMetrics(gauges map[string]float64, counters map[string]int64) error {
-	for k, v := range gauges {
-		s.SaveGauge(k, &v)
-	}
-	for k, v := range counters {
-		s.SaveCounter(k, &v)
-	}
 	return nil
 }
 
-func (s *MemStorage) CheckStorageAvailability() bool {
-	return true
+func (s *MemStorage) CheckStorageAvailability(_ context.Context) bool {
+	return true 
 }
 
 func (s *MemStorage) Close() error {
-	s.logger.Info("menmory storage closed")
 	return nil
 }

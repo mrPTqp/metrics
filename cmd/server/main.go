@@ -1,3 +1,4 @@
+// cmd/server/main.go
 package main
 
 import (
@@ -19,18 +20,28 @@ func main() {
 	sugar.Infow("configuration created", "config", cfg)
 
 	bootstrapper := bootstrap.NewBootstrapper(cfg, sugar)
-	components := bootstrapper.MustRun()
 
-	application := metrics.NewApp(components)
-
+	// Создаём общий контекст приложения
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	go application.Run()
+	// Передаём контекст в бутстрап — например, для восстановления из файла
+	components := bootstrapper.MustRun(ctx)
+	if components == nil {
+		sugar.Fatal("failed to bootstrap application")
+	}
+
+	application := app.NewApp(components)
+
+	// Запускаем приложение с общим контекстом
+	go application.RunWithContext(ctx)
+
+	sugar.Infoln("Application started")
 
 	<-ctx.Done()
 	sugar.Infoln("Shutdown signal received")
 
+	// Контекст для graceful shutdown
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

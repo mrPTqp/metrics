@@ -32,7 +32,7 @@ func (s *MetricsScheduler) Start(ctx context.Context, pollInterval int, reportIn
 		pollTicker.Stop()
 		reportTicker.Stop()
 		close(taskCh)
-		s.logger.Info("Scheduler stopped: tickers stopped and task channel closed")
+		s.logger.Infoln("Scheduler stopped: tickers stopped and task channel closed")
 	}()
 
 	for i := range rateLimit {
@@ -43,9 +43,9 @@ func (s *MetricsScheduler) Start(ctx context.Context, pollInterval int, reportIn
 	for {
 		select {
 		case <-ctx.Done():
-			s.logger.Info("Shutdown signal received, waiting for active workers to finish...")
+			s.logger.Infoln("Shutdown signal received, waiting for active workers to finish...")
 			wg.Wait()
-			s.logger.Info("All workers have stopped. Scheduler shutdown complete.")
+			s.logger.Infoln("All workers have stopped. Scheduler shutdown complete.")
 			return
 
 		case <-pollTicker.C:

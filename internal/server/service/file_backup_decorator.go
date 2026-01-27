@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"go.uber.org/zap"
 
 	"github.com/mrPTqp/metrics/internal/server/repository"
@@ -20,45 +21,45 @@ func NewFileBackupService(service MetricsService, repo repository.MetricReposito
 	}
 }
 
-func (d *FileBackupService) SaveGaugeMetric(mName string, mValue *float64) error {
-	if err := d.service.SaveGaugeMetric(mName, mValue); err != nil {
+func (d *FileBackupService) SaveGaugeMetric(ctx context.Context, mName string, mValue *float64) error {
+	if err := d.service.SaveGaugeMetric(ctx, mName, mValue); err != nil {
 		return err
 	}
-	if err := d.repo.SaveGauge(mName, mValue); err != nil {
+	if err := d.repo.SaveGauge(ctx, mName, mValue); err != nil {
 		d.logger.Warnw("Failed to backup gauge to file", "name", mName, "error", err)
 	}
 	return nil
 }
 
-func (d *FileBackupService) SaveCounterMetric(mName string, mValue *int64) error {
-	if err := d.service.SaveCounterMetric(mName, mValue); err != nil {
+func (d *FileBackupService) SaveCounterMetric(ctx context.Context, mName string, mValue *int64) error {
+	if err := d.service.SaveCounterMetric(ctx, mName, mValue); err != nil {
 		return err
 	}
-	if err := d.repo.SaveCounter(mName, mValue); err != nil {
+	if err := d.repo.SaveCounter(ctx, mName, mValue); err != nil {
 		d.logger.Warnw("Failed to backup counter to file", "name", mName, "error", err)
 	}
 	return nil
 }
 
-func (d *FileBackupService) GetGaugeMetric(mName string) (float64, error) {
-	return d.service.GetGaugeMetric(mName)
+func (d *FileBackupService) GetGaugeMetric(ctx context.Context, mName string) (float64, error) {
+	return d.service.GetGaugeMetric(ctx, mName)
 }
 
-func (d *FileBackupService) GetCounterMetric(mName string) (int64, error) {
-	return d.service.GetCounterMetric(mName)
+func (d *FileBackupService) GetCounterMetric(ctx context.Context, mName string) (int64, error) {
+	return d.service.GetCounterMetric(ctx, mName)
 }
 
-func (d *FileBackupService) ListAllMetrics() (map[string]float64, map[string]int64) {
-	return d.service.ListAllMetrics()
+func (d *FileBackupService) ListAllMetrics(ctx context.Context) (map[string]float64, map[string]int64) {
+	return d.service.ListAllMetrics(ctx)
 }
 
-func (d *FileBackupService) SaveAllMetrics(gauges map[string]float64, counters map[string]int64) error {
-	if err := d.service.SaveAllMetrics(gauges, counters); err != nil {
+func (d *FileBackupService) SaveAllMetrics(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
+	if err := d.service.SaveAllMetrics(ctx, gauges, counters); err != nil {
 		return err
 	}
-	return d.repo.SaveAllMetrics(gauges, counters)
+	return d.repo.SaveAllMetrics(ctx, gauges, counters)
 }
 
-func (d *FileBackupService) Ping() bool {
-	return d.repo.CheckStorageAvailability()
+func (d *FileBackupService) Ping(ctx context.Context) bool {
+	return d.repo.CheckStorageAvailability(ctx)
 }

@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"errors"
 	"sync"
 
@@ -8,8 +9,8 @@ import (
 )
 
 type MetricsProvider interface {
-	ListGauges() (map[string]float64, error)
-	ListCounters() (map[string]int64, error)
+	ListGauges(context.Context) (map[string]float64, error)
+	ListCounters(context.Context) (map[string]int64, error)
 }
 
 type FileStorage struct {
@@ -35,12 +36,12 @@ func (fs *FileStorage) Backup() error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	gauges, err := fs.metricsProvider.ListGauges()
+	gauges, err := fs.metricsProvider.ListGauges(context.Background())
 	if err != nil {
 		return err
 	}
 
-	counters, err := fs.metricsProvider.ListCounters()
+	counters, err := fs.metricsProvider.ListCounters(context.Background())
 	if err != nil {
 		return err
 	}
@@ -70,13 +71,13 @@ func (fs *FileStorage) backupAllMetrics(metricType, metricName string) {
 		return
 	}
 
-	gauges, err := fs.metricsProvider.ListGauges()
+	gauges, err := fs.metricsProvider.ListGauges(context.Background())
 	if err != nil {
 		fs.logger.Errorf("failed to get gauges for backup: %v", err)
 		return
 	}
 
-	counters, err := fs.metricsProvider.ListCounters()
+	counters, err := fs.metricsProvider.ListCounters(context.Background())
 	if err != nil {
 		fs.logger.Errorf("failed to get counters for backup: %v", err)
 		return
@@ -92,7 +93,7 @@ func (fs *FileStorage) backupAllMetrics(metricType, metricName string) {
 	}
 }
 
-func (fs *FileStorage) SaveGauge(key string, value *float64) error {
+func (fs *FileStorage) SaveGauge(ctx context.Context, key string, value *float64) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -100,7 +101,7 @@ func (fs *FileStorage) SaveGauge(key string, value *float64) error {
 	return nil
 }
 
-func (fs *FileStorage) SaveCounter(key string, value *int64) error {
+func (fs *FileStorage) SaveCounter(ctx context.Context, key string, value *int64) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -108,23 +109,23 @@ func (fs *FileStorage) SaveCounter(key string, value *int64) error {
 	return nil
 }
 
-func (fs *FileStorage) GetGauge(key string) (float64, error) {
+func (fs *FileStorage) GetGauge(ctx context.Context, key string) (float64, error) {
 	return 0, errors.New("FileStorage does not store data, use the main storage")
 }
 
-func (fs *FileStorage) GetCounter(key string) (int64, error) {
+func (fs *FileStorage) GetCounter(ctx context.Context, key string) (int64, error) {
 	return 0, errors.New("FileStorage does not store data, use the main storage")
 }
 
-func (fs *FileStorage) ListGauges() (map[string]float64, error) {
+func (fs *FileStorage) ListGauges(ctx context.Context) (map[string]float64, error) {
 	return nil, errors.New("FileStorage does not store data, use the main storage")
 }
 
-func (fs *FileStorage) ListCounters() (map[string]int64, error) {
+func (fs *FileStorage) ListCounters(ctx context.Context) (map[string]int64, error) {
 	return nil, errors.New("FileStorage does not store data, use the main storage")
 }
 
-func (fs *FileStorage) SaveAllMetrics(gauges map[string]float64, counters map[string]int64) error {
+func (fs *FileStorage) SaveAllMetrics(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -136,11 +137,11 @@ func (fs *FileStorage) SaveAllMetrics(gauges map[string]float64, counters map[st
 	return fs.producer.WriteData(data)
 }
 
-func (fs *FileStorage) CheckStorageAvailability() bool {
+func (fs *FileStorage) CheckStorageAvailability(ctx context.Context) bool {
 	return fs.consumer.CheckFileAccess()
 }
 
 func (fs *FileStorage) Close() error {
-	fs.logger.Info("FileStorage closed")
+	fs.logger.Infoln("FileStorage closed")
 	return nil
 }

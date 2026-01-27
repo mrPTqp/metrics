@@ -52,7 +52,7 @@ func (ma *MetricsAgent) SendMetrics() {
 	additionalGauges := ma.repository.GetAdditionalGaugeMetrics()
 
 	if len(gauges) == 0 && len(counters) == 0 && len(additionalGauges) == 0 {
-		ma.logger.Info("gauges and counters are empty")
+		ma.logger.Infoln("gauges and counters are empty")
 		return
 	}
 
@@ -131,5 +131,5 @@ func (ma *MetricsAgent) SendMetrics() {
 		return
 	}
 
-	ma.logger.Info("Metrics successfully sent to server")
+	ma.logger.Infoln("Metrics successfully sent to server")
 }

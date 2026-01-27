@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"go.uber.org/zap"
 
 	"github.com/mrPTqp/metrics/internal/server/repository"
@@ -18,8 +19,8 @@ func NewMetricsService(repo repository.MetricRepository, logger *zap.SugaredLogg
 	}
 }
 
-func (ms *BaseMetricService) SaveGaugeMetric(mName string, mValue *float64) error {
-	err := ms.repo.SaveGauge(mName, mValue)
+func (ms *BaseMetricService) SaveGaugeMetric(ctx context.Context, mName string, mValue *float64) error {
+	err := ms.repo.SaveGauge(ctx, mName, mValue)
 	if err != nil {
 		return err
 	}
@@ -27,8 +28,8 @@ func (ms *BaseMetricService) SaveGaugeMetric(mName string, mValue *float64) erro
 	return nil
 }
 
-func (ms *BaseMetricService) SaveCounterMetric(mName string, mValue *int64) error {
-	err := ms.repo.SaveCounter(mName, mValue)
+func (ms *BaseMetricService) SaveCounterMetric(ctx context.Context, mName string, mValue *int64) error {
+	err := ms.repo.SaveCounter(ctx, mName, mValue)
 	if err != nil {
 		return err
 	}
@@ -36,8 +37,8 @@ func (ms *BaseMetricService) SaveCounterMetric(mName string, mValue *int64) erro
 	return nil
 }
 
-func (ms *BaseMetricService) GetGaugeMetric(mName string) (float64, error) {
-	mValue, err := ms.repo.GetGauge(mName)
+func (ms *BaseMetricService) GetGaugeMetric(ctx context.Context, mName string) (float64, error) {
+	mValue, err := ms.repo.GetGauge(ctx, mName)
 	if err != nil {
 		return 0, err
 	}
@@ -45,8 +46,8 @@ func (ms *BaseMetricService) GetGaugeMetric(mName string) (float64, error) {
 	return mValue, nil
 }
 
-func (ms *BaseMetricService) GetCounterMetric(mName string) (int64, error) {
-	mValue, err := ms.repo.GetCounter(mName)
+func (ms *BaseMetricService) GetCounterMetric(ctx context.Context, mName string) (int64, error) {
+	mValue, err := ms.repo.GetCounter(ctx, mName)
 	if err != nil {
 		return 0, err
 	}
@@ -54,14 +55,14 @@ func (ms *BaseMetricService) GetCounterMetric(mName string) (int64, error) {
 	return mValue, nil
 }
 
-func (ms *BaseMetricService) ListAllMetrics() (map[string]float64, map[string]int64) {
-	gauges, err := ms.repo.ListGauges()
+func (ms *BaseMetricService) ListAllMetrics(ctx context.Context) (map[string]float64, map[string]int64) {
+	gauges, err := ms.repo.ListGauges(ctx)
 	if err != nil {
 		ms.logger.Errorf("Failed to list gauges: %v", err)
 		gauges = make(map[string]float64)
 	}
 
-	counters, err := ms.repo.ListCounters()
+	counters, err := ms.repo.ListCounters(ctx)
 	if err != nil {
 		ms.logger.Errorf("Failed to list counters: %v", err)
 		counters = make(map[string]int64)
@@ -70,10 +71,10 @@ func (ms *BaseMetricService) ListAllMetrics() (map[string]float64, map[string]in
 	return gauges, counters
 }
 
-func (ms *BaseMetricService) SaveAllMetrics(gauges map[string]float64, counters map[string]int64) error {
-	return ms.repo.SaveAllMetrics(gauges, counters)
+func (ms *BaseMetricService) SaveAllMetrics(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
+	return ms.repo.SaveAllMetrics(ctx, gauges, counters)
 }
 
-func (ms *BaseMetricService) Ping() bool {
-	return ms.repo.CheckStorageAvailability()
+func (ms *BaseMetricService) Ping(ctx context.Context) bool {
+	return ms.repo.CheckStorageAvailability(ctx)
 }

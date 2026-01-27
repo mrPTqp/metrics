@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -28,13 +29,13 @@ func (mh *MetricHandler) SaveMetricHandler(w http.ResponseWriter, r *http.Reques
 
 	switch mType {
 	case "gauge":
-		mh.handleSaveGaugePlain(w, mName, mValue)
+		mh.handleSaveGaugePlain(w, r.Context(), mName, mValue)
 	case "counter":
-		mh.handleSaveCounterPlain(w, mName, mValue)
+		mh.handleSaveCounterPlain(w, r.Context(), mName, mValue)
 	}
 }
 
-func (mh *MetricHandler) handleSaveGaugePlain(w http.ResponseWriter, name, value string) {
+func (mh *MetricHandler) handleSaveGaugePlain(w http.ResponseWriter, ctx context.Context, name, value string) {
 	floatValue, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		mh.logger.Error("Error parsing gauge value: %s - %s", name, value, zap.Error(err))
@@ -42,7 +43,7 @@ func (mh *MetricHandler) handleSaveGaugePlain(w http.ResponseWriter, name, value
 		return
 	}
 
-	err = mh.service.SaveGaugeMetric(name, &floatValue)
+	err = mh.service.SaveGaugeMetric(ctx, name, &floatValue)
 	if err != nil {
 		mh.logger.Error("Error processing gauge metric: %s - %v", name, floatValue, zap.Error(err))
 		mh.writeTextError(w, "Failed to save gauge", http.StatusBadRequest)
@@ -52,7 +53,7 @@ func (mh *MetricHandler) handleSaveGaugePlain(w http.ResponseWriter, name, value
 	mh.writeTextResponse(w, "", http.StatusOK)
 }
 
-func (mh *MetricHandler) handleSaveCounterPlain(w http.ResponseWriter, name, value string) {
+func (mh *MetricHandler) handleSaveCounterPlain(w http.ResponseWriter, ctx context.Context, name, value string) {
 	intValue, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
 		mh.logger.Error("Error parsing counter value: %s - %s", name, value, zap.Error(err))
@@ -60,7 +61,7 @@ func (mh *MetricHandler) handleSaveCounterPlain(w http.ResponseWriter, name, val
 		return
 	}
 
-	err = mh.service.SaveCounterMetric(name, &intValue)
+	err = mh.service.SaveCounterMetric(ctx, name, &intValue)
 	if err != nil {
 		mh.logger.Error("Error processing counter metric: %s - %d", name, intValue, zap.Error(err))
 		mh.writeTextError(w, "Failed to save counter", http.StatusBadRequest)
@@ -88,14 +89,14 @@ func (mh *MetricHandler) GetMetricHandler(w http.ResponseWriter, r *http.Request
 
 	switch mType {
 	case "gauge":
-		mh.handleGetGaugePlain(w, mName)
+		mh.handleGetGaugePlain(w, r.Context(), mName)
 	case "counter":
-		mh.handleGetCounterPlain(w, mName)
+		mh.handleGetCounterPlain(w, r.Context(), mName)
 	}
 }
 
-func (mh *MetricHandler) handleGetGaugePlain(w http.ResponseWriter, name string) {
-	value, err := mh.service.GetGaugeMetric(name)
+func (mh *MetricHandler) handleGetGaugePlain(w http.ResponseWriter, ctx context.Context, name string) {
+	value, err := mh.service.GetGaugeMetric(ctx, name)
 	if err != nil {
 		mh.logger.Error("Error getting gauge metric: %s", name, zap.Error(err))
 		mh.writeTextError(w, "gauge not found", http.StatusNotFound)
@@ -105,8 +106,8 @@ func (mh *MetricHandler) handleGetGaugePlain(w http.ResponseWriter, name string)
 	mh.writeTextResponse(w, fmt.Sprintf("%g", value), http.StatusOK)
 }
 
-func (mh *MetricHandler) handleGetCounterPlain(w http.ResponseWriter, name string) {
-	value, err := mh.service.GetCounterMetric(name)
+func (mh *MetricHandler) handleGetCounterPlain(w http.ResponseWriter, ctx context.Context, name string) {
+	value, err := mh.service.GetCounterMetric(ctx, name)
 	if err != nil {
 		mh.logger.Error("Error getting counter metric: %s", name, zap.Error(err))
 		mh.writeTextError(w, "counter not found", http.StatusNotFound)
@@ -118,9 +119,22 @@ func (mh *MetricHandler) handleGetCounterPlain(w http.ResponseWriter, name strin
 
 func (mh *MetricHandler) CollectMetricsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
-	gauges, counters := mh.service.ListAllMetrics()
+	gauges, counters := mh.service.ListAllMetrics(r.Context())
 	renderMetricsHTML(w, gauges, counters)
 }
+
+func (mh *MetricHandler) DBHealthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	if mh.service == nil {
+		http.Error(w, "service not available", http.StatusInternalServerError)
+		return
+	}
+	if !mh.service.Ping(r.Context()) {
+		http.Error(w, "database unreachable", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
 func isValidMetricType(metricType string) bool {
 	return metricType == "gauge" || metricType == "counter"
 }
@@ -140,16 +154,4 @@ func (mh *MetricHandler) writeTextResponse(w http.ResponseWriter, body string, s
 	if body != "" {
 		_, _ = w.Write([]byte(body))
 	}
-}
-
-func (mh *MetricHandler) DBHealthCheckHandler(w http.ResponseWriter, r *http.Request) {
-    if mh.service == nil {
-        http.Error(w, "service not available", http.StatusInternalServerError)
-        return
-    }
-    if !mh.service.Ping() {
-        http.Error(w, "database unreachable", http.StatusInternalServerError)
-        return
-    }
-    w.WriteHeader(http.StatusOK)
 }
