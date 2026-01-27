@@ -1,5 +1,3 @@
-// internal/retry/retrier.go
-
 package retry
 
 import (

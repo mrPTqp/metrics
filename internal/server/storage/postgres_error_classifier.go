@@ -20,7 +20,6 @@ func (c *PostgresErrorClassifier) Classify(err error) retry.ErrorClassification 
         return retry.NonRetriable
     }
 
-    // Проверяем и конвертируем в pgconn.PgError, если это возможно
     var pgErr *pgconn.PgError
     if errors.As(err, &pgErr) {
         return СlassifyPgError(pgErr)

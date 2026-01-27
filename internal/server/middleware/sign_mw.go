@@ -30,7 +30,6 @@ func SignMiddleware(h http.HandlerFunc, key string, logger *zap.SugaredLogger) h
 		r.Body = io.NopCloser(bytes.NewReader(bodyContent))
 
 		signHeader := r.Header.Get("HashSHA256")
-		// Если заголовок HashSHA256 есть и не пустой — проверяем подпись
 		if signHeader != "" {
 			if !signer.Verify(bodyContent, &signHeader, &key, logger) {
 				logger.Warn("invalid signature in request")
