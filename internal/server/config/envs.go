@@ -12,54 +12,68 @@ type Envs struct {
 	Restore         *bool
 	DatabaseDsn     *string
 	SecretKey       *string
+	AuditFilePath   *string
+	AuditURL        *string
 }
 
 func ParseEnvs() *Envs {
-	var address string
-	var storeInterval int
-	var fileStoragePath string
-	var restore bool
-	var databaseDsn string
-	var secretKey string
+	var address *string
+	var storeInterval *int
+	var fileStoragePath *string
+	var restore *bool
+	var databaseDsn *string
+	var secretKey *string
+	var auditFilePath *string
+	var auditURL *string
 
 	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
-		address = envAddr
+		address = &envAddr
 	}
 
 	if envStoreIntervalStr := os.Getenv("STORE_INTERVAL"); envStoreIntervalStr != "" {
 		if envStoreInterval, err := strconv.Atoi(envStoreIntervalStr); err != nil {
 			panic("wrong STORE_INTERVAL type value: " + envStoreIntervalStr)
 		} else {
-			storeInterval = envStoreInterval
+			storeInterval = &envStoreInterval
 		}
 	}
 
 	if envfileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envfileStoragePath != "" {
-		fileStoragePath = envfileStoragePath
+		fileStoragePath = &envfileStoragePath
 	}
 
 	if envRestoreStr := os.Getenv("RESTORE"); envRestoreStr != "" {
 		if envRestore, err := strconv.ParseBool(envRestoreStr); err != nil {
 			panic("wrong RESTORE type value: " + envRestoreStr)
 		} else {
-			restore = envRestore
+			restore = &envRestore
 		}
 	}
 
 	if envDatabaseDsn := os.Getenv("DATABASE_DSN"); envDatabaseDsn != "" {
-		databaseDsn = envDatabaseDsn
+		databaseDsn = &envDatabaseDsn
 	}
 
 	if envSecretKey := os.Getenv("KEY"); envSecretKey != "" {
-		secretKey = envSecretKey
+		secretKey = &envSecretKey
+	}
+
+	if envAuditFilePath := os.Getenv("AUDIT_FILE"); envAuditFilePath != "" {
+		auditFilePath = &envAuditFilePath
+	}
+
+	if envAuditURL := os.Getenv("AUDIT_URL"); envAuditURL != "" {
+		auditURL = &envAuditURL
 	}
 
 	return &Envs{
-		Address:         &address,
-		StoreInterval:   &storeInterval,
-		FileStoragePath: &fileStoragePath,
-		Restore:         &restore,
-		DatabaseDsn:     &databaseDsn,
-		SecretKey:       &secretKey,
+		Address:         address,
+		StoreInterval:   storeInterval,
+		FileStoragePath: fileStoragePath,
+		Restore:         restore,
+		DatabaseDsn:     databaseDsn,
+		SecretKey:       secretKey,
+		AuditFilePath:   auditFilePath,
+		AuditURL:        auditURL,
 	}
 }

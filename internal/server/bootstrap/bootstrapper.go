@@ -7,6 +7,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/mrPTqp/metrics/internal/audit"
 	"github.com/mrPTqp/metrics/internal/server/backup"
 	"github.com/mrPTqp/metrics/internal/server/config"
 	"github.com/mrPTqp/metrics/internal/server/handler"
@@ -57,19 +58,39 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) *AppComponents {
 	baseService := service.NewMetricsService(mr, bs.logger)
 	var ms service.MetricsService = baseService
 
-	p := storage.NewFileProducer(bs.cfg.File, bs.logger)
-	c := storage.NewFileConsumer(bs.cfg.File, bs.logger)
-	fsr := storage.NewFileStorage(p, c, mr, bs.cfg.SyncBackupToFile, bs.logger)
+	p := storage.NewFileProducer(bs.cfg.BackupFilePath, bs.logger)
+	c := storage.NewFileConsumer(bs.cfg.BackupFilePath, bs.logger)
+	fs := storage.NewFileStorage(p, c, mr, bs.cfg.SyncBackupToFile, bs.logger)
 
 	var b *backup.Backuper
 	if bs.cfg.SyncBackupToFile {
-		ms = service.NewFileBackupService(baseService, fsr, bs.logger)
+		ms = service.NewFileBackupService(baseService, fs, bs.logger)
 	} else {
-		b = backup.NewBackuper(ms, fsr, bs.logger)
+		b = backup.NewBackuper(ms, fs, bs.logger)
+	}
+
+	var auditProcessors []audit.AuditProcessor
+	var eventBus *audit.EventBus
+	if bs.cfg.FileAuditEnabled {
+		proc, err := audit.NewFileAuditProcessor(bs.cfg.AuditFilePath, bs.logger)
+		if err != nil {
+			bs.logger.Fatal("Failed to create file audit processor", zap.Error(err))
+		}
+		auditProcessors = append(auditProcessors, proc)
+		bs.logger.Info("File audit enabled", zap.String("path", bs.cfg.AuditFilePath))
+	}
+	if bs.cfg.HTTPAuditEnabled {
+		proc := audit.NewHTTPAuditProcessor(*bs.cfg.AuditURL, bs.logger)
+		auditProcessors = append(auditProcessors, proc)
+		bs.logger.Info("HTTP audit enabled", zap.String("url", *bs.cfg.AuditURL))
+	}
+	if len(auditProcessors) > 0 {
+		eventBus = audit.NewEventBus(auditProcessors, 1000, bs.logger)
+		ms = service.NewAuditService(ms, eventBus)
 	}
 
 	if bs.cfg.Restore {
-		r := backup.NewRestorer(ms, fsr, bs.logger)
+		r := backup.NewRestorer(ms, fs, bs.logger)
 		restoreCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		err := r.Restore(restoreCtx)
 		cancel()
@@ -91,20 +112,24 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) *AppComponents {
 	mws = append(mws, middleware.GzipMiddleware)
 
 	return &AppComponents{
-		Config:      bs.cfg,
-		Logger:      bs.logger,
-		Repo:        mr,
-		Backuper:    b,
-		Handler:     mh,
-		Middlewares: mws,
+		Config:          bs.cfg,
+		Logger:          bs.logger,
+		Repo:            mr,
+		Handler:         mh,
+		Backuper:        b,
+		Middlewares:     mws,
+		EventBus:        eventBus,
+		AuditProcessors: auditProcessors,
 	}
 }
 
 type AppComponents struct {
-	Config      *config.Config
-	Logger      *zap.Logger
-	Repo        repository.MetricRepository
-	Handler     *handler.MetricHandler
-	Backuper    *backup.Backuper
-	Middlewares []func(http.Handler) http.Handler
+	Config          *config.Config
+	Logger          *zap.Logger
+	Repo            repository.MetricRepository
+	Handler         *handler.MetricHandler
+	Backuper        *backup.Backuper
+	Middlewares     []func(http.Handler) http.Handler
+	EventBus        *audit.EventBus
+	AuditProcessors []audit.AuditProcessor
 }

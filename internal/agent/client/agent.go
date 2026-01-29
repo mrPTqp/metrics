@@ -97,8 +97,8 @@ func (ma *MetricsAgent) SendMetrics() {
 		return
 	}
 
-	url := "http://" + address.String() + "/updates"
-	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(compressedBody))
+	URL := "http://" + address.String() + "/updates"
+	httpReq, err := http.NewRequest("POST", URL, bytes.NewReader(compressedBody))
 	if err != nil {
 		ma.logger.Error("failed to create HTTP request", zap.Error(err))
 		return
@@ -132,7 +132,7 @@ func (ma *MetricsAgent) SendMetrics() {
 	if resp.StatusCode != http.StatusOK {
 		ma.logger.Error("HTTP request failed",
 			zap.Int("status_code", resp.StatusCode),
-			zap.String("url", url))
+			zap.String("url", URL))
 		return
 	}
 

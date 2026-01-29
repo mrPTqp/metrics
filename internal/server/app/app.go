@@ -1,3 +1,4 @@
+// internal/server/app/app.go
 package app
 
 import (
@@ -7,7 +8,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-
 	"go.uber.org/zap"
 
 	"github.com/mrPTqp/metrics/internal/contextkey"
@@ -120,6 +120,23 @@ func (a *App) Shutdown(shutdownCtx context.Context) {
 			logger.Error("Server forced to shutdown", zap.Error(err))
 		} else {
 			logger.Info("Server stopped gracefully")
+		}
+
+		if a.cfg.EventBus != nil {
+			logger.Info("Shutting down audit event bus...")
+			if err := a.cfg.EventBus.ShutDown(shutdownCtx); err != nil {
+				logger.Warn("EventBus shutdown timeout", zap.Error(err))
+			} else {
+				logger.Info("EventBus stopped")
+			}
+		}
+
+		for _, proc := range a.cfg.AuditProcessors {
+			if closer, ok := proc.(interface{ Shutdown(context.Context) error }); ok {
+				if err := closer.Shutdown(shutdownCtx); err != nil {
+					logger.Warn("Audit processor shutdown failed", zap.Error(err))
+				}
+			}
 		}
 
 		if a.backuper != nil {

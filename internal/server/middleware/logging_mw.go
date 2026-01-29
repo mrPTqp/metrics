@@ -3,7 +3,9 @@ package middleware
 import (
 	"bytes"
 	"io"
+	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -48,6 +50,9 @@ func LoggingMiddleware(baseLogger *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			rid := uuid.New().String()
+			ip := getIP(r)
+			ctx := contextkey.WithClientIP(r.Context(), ip)
+
 			start := time.Now()
 
 			log := baseLogger.With(
@@ -58,7 +63,7 @@ func LoggingMiddleware(baseLogger *zap.Logger) func(http.Handler) http.Handler {
 				zap.String("rid", rid),
 			)
 
-			ctx := contextkey.WithLogger(r.Context(), log)
+			ctx = contextkey.WithLogger(ctx, log)
 			r = r.WithContext(ctx)
 
 			var reqBody []byte
@@ -105,7 +110,7 @@ func LoggingMiddleware(baseLogger *zap.Logger) func(http.Handler) http.Handler {
 					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 					return
 				}
-				
+
 				if status >= 500 {
 					log.Error("Server error",
 						zap.ByteString("request_body", reqBody),
@@ -128,4 +133,20 @@ func LoggingMiddleware(baseLogger *zap.Logger) func(http.Handler) http.Handler {
 			next.ServeHTTP(lrw, r)
 		})
 	}
+}
+
+func getIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		ips := strings.Split(xff, ",")
+		if len(ips) > 0 {
+			return strings.TrimSpace(ips[0])
+		}
+	}
+
+	if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
+		return xrip
+	}
+
+	host, _, _ := net.SplitHostPort(r.RemoteAddr)
+	return host
 }
