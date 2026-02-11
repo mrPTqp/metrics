@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	_ "net/http/pprof"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -43,6 +44,7 @@ func NewApp(components *bootstrap.AppComponents) *App {
 		r.Post("/", wrap(components.Handler.ValueMetricHandlerJSON, components.Middlewares...))
 		r.Get("/{type}/{name}", wrap(components.Handler.GetMetricHandler, components.Middlewares...))
 	})
+	r.Mount("/debug/pprof", http.DefaultServeMux)
 
 	server := &http.Server{
 		Addr:    components.Config.Address.String(),

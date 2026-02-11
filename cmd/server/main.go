@@ -10,7 +10,7 @@ import (
 	"github.com/mrPTqp/metrics/internal/server/app"
 	"github.com/mrPTqp/metrics/internal/server/bootstrap"
 	"github.com/mrPTqp/metrics/internal/server/config"
-	"go.uber.org/zap"
+	"go.uber.org/zap"	
 )
 
 func main() {
