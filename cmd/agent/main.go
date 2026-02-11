@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mrPTqp/metrics/internal/agent/client"
+	agent "github.com/mrPTqp/metrics/internal/agent/client"
 	"github.com/mrPTqp/metrics/internal/agent/config"
 	"github.com/mrPTqp/metrics/internal/agent/scheduler"
 	"github.com/mrPTqp/metrics/internal/agent/storage"

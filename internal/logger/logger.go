@@ -2,7 +2,7 @@ package logger
 
 import "go.uber.org/zap"
 
-func NewSugarLogger() *zap.SugaredLogger{
+func NewSugarLogger() *zap.SugaredLogger {
 	var sugar *zap.SugaredLogger
 	logger, err := zap.NewDevelopment()
 	if err != nil {

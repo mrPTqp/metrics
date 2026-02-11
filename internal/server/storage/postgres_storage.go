@@ -9,8 +9,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 
-	"github.com/mrPTqp/metrics/internal/retry"
 	"github.com/mrPTqp/metrics/internal/contextkey"
+	"github.com/mrPTqp/metrics/internal/retry"
 )
 
 var ErrMetricNotFound = errors.New("metric not found")
@@ -237,7 +237,7 @@ func (ps *PostgresStorage) CheckStorageAvailability(ctx context.Context) bool {
 }
 
 func (ps *PostgresStorage) Close() error {
-	log := ps.logger 
+	log := ps.logger
 	if ps.DB != nil {
 		err := ps.DB.Close()
 		if err != nil {

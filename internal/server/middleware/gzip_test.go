@@ -468,9 +468,9 @@ func TestGzipMiddleware_DecompressRequest(t *testing.T) {
 	middleware := GzipMiddleware(handler)
 
 	tests := []struct {
-		name            string
-		contentEncoding string
-		body            []byte
+		name             string
+		contentEncoding  string
+		body             []byte
 		shouldDecompress bool
 	}{
 		{
@@ -481,7 +481,7 @@ func TestGzipMiddleware_DecompressRequest(t *testing.T) {
 		},
 		{
 			name:             "does not decompress without Content-Encoding",
-			contentEncoding:   "",
+			contentEncoding:  "",
 			body:             originalData,
 			shouldDecompress: false,
 		},
@@ -673,4 +673,3 @@ func TestGzipMiddleware_StatusCodeCompression(t *testing.T) {
 		})
 	}
 }
-

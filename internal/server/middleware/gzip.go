@@ -11,10 +11,10 @@ import (
 )
 
 var gzipWriterPool = sync.Pool{
-    New: func() interface{} {
-        w, _ := gzip.NewWriterLevel(nil, gzip.DefaultCompression)
-        return w
-    },
+	New: func() interface{} {
+		w, _ := gzip.NewWriterLevel(nil, gzip.DefaultCompression)
+		return w
+	},
 }
 
 type compressWriter struct {

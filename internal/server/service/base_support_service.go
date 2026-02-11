@@ -17,5 +17,3 @@ func NewBaseSupportService(repo repository.MetricRepository, logger *zap.Sugared
 		logger: logger,
 	}
 }
-
-

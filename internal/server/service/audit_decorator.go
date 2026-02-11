@@ -47,7 +47,7 @@ func (a *AuditService) SaveAllMetrics(ctx context.Context, gauges map[string]flo
 	}
 	for name := range counters {
 		names = append(names, name)
-	}	
+	}
 	a.logEvent(ctx, names)
 	return nil
 }

@@ -92,7 +92,7 @@ func (s *MemStorage) SaveAllMetrics(_ context.Context, gauges map[string]float64
 }
 
 func (s *MemStorage) CheckStorageAvailability(_ context.Context) bool {
-	return true 
+	return true
 }
 
 func (s *MemStorage) Close() error {

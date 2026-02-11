@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+
 	"go.uber.org/zap"
 
 	"github.com/mrPTqp/metrics/internal/contextkey"

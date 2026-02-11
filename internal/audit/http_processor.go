@@ -25,7 +25,7 @@ func NewHTTPAuditProcessor(URL string, logger *zap.Logger) *HTTPAuditProcessor {
 		client: &http.Client{
 			Timeout: 5 * time.Second,
 		},
-		URL: URL,
+		URL:    URL,
 		logger: logger,
 	}
 

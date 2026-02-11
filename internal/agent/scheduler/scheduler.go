@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mrPTqp/metrics/internal/agent/client"
+	agent "github.com/mrPTqp/metrics/internal/agent/client"
 	"go.uber.org/zap"
 )
 

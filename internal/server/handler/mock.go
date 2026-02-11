@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+
 	"github.com/mrPTqp/metrics/internal/server/service"
 )
 

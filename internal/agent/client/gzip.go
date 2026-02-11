@@ -22,7 +22,7 @@ func Compress(data []byte) ([]byte, error) {
 
 	_, err := gz.Write(data)
 	if err != nil {
-		gz.Close() 
+		gz.Close()
 		gzipWriterPool.Put(gz)
 		return nil, fmt.Errorf("failed write data to gzip: %v", err)
 	}

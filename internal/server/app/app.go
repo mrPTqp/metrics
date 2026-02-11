@@ -4,9 +4,9 @@ package app
 import (
 	"context"
 	"net/http"
+	_ "net/http/pprof"
 	"sync"
 	"time"
-	_ "net/http/pprof"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"

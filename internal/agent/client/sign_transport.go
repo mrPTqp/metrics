@@ -53,8 +53,8 @@ func (st *SigningTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Восстанавливаем тело
 
 	if !signer.Verify(bodyBytes, &signature, &st.SecretKey, st.Logger) {
-        return nil, fmt.Errorf("response signature verification failed")
-    }
+		return nil, fmt.Errorf("response signature verification failed")
+	}
 
 	return resp, err
 }

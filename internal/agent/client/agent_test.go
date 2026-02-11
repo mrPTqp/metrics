@@ -52,12 +52,12 @@ func TestMetricsAgent_PollMetrics(t *testing.T) {
 	cfg := &config.Config{ReportInterval: 10, PollInterval: 2}
 
 	tests := []struct {
-		name           string
+		name            string
 		initialCounters map[string]int64
-		expectCall     func(*MockRepository)
+		expectCall      func(*MockRepository)
 	}{
 		{
-			name:           "Increments_PollCount",
+			name:            "Increments_PollCount",
 			initialCounters: map[string]int64{"PollCount": 5},
 			expectCall: func(mr *MockRepository) {
 				mr.On("GetAllMetrics").Return(
@@ -70,7 +70,7 @@ func TestMetricsAgent_PollMetrics(t *testing.T) {
 			},
 		},
 		{
-			name:           "Empty_Counters_Initiates_PollCount",
+			name:            "Empty_Counters_Initiates_PollCount",
 			initialCounters: map[string]int64{},
 			expectCall: func(mr *MockRepository) {
 				mr.On("GetAllMetrics").Return(
