@@ -21,6 +21,9 @@ func writeJSONError(w http.ResponseWriter, message string, statusCode int, logge
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 
+// Middleware для проверки подписи запроса и генерации подписи ответа.
+// Key - секретный ключ для подписи (одинаковый для запроса и ответа).
+// Подпись генерируется в заголовке "HashSHA256"
 func SignMiddleware(key string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

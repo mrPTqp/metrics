@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Обработчик событией аудита с отправкой по HTTP
 type HTTPAuditProcessor struct {
 	ch     chan AuditEvent
 	client *http.Client
@@ -18,6 +19,7 @@ type HTTPAuditProcessor struct {
 	logger *zap.Logger
 }
 
+// Возвращает новый экземпляр HTTPAuditProcessor
 func NewHTTPAuditProcessor(URL string, logger *zap.Logger) *HTTPAuditProcessor {
 	processor := &HTTPAuditProcessor{
 		ch:   make(chan AuditEvent),
@@ -33,6 +35,7 @@ func NewHTTPAuditProcessor(URL string, logger *zap.Logger) *HTTPAuditProcessor {
 	return processor
 }
 
+// Отправляет событие аудита по HTTP
 func (p *HTTPAuditProcessor) Write(event AuditEvent) error {
 	select {
 	case p.ch <- event:
@@ -69,6 +72,7 @@ func (p *HTTPAuditProcessor) send(event AuditEvent) {
 	resp.Body.Close()
 }
 
+// Останавливает обработчик событий аудита с отправкой по HTTP
 func (p *HTTPAuditProcessor) ShutDown(ctx context.Context) error {
 	close(p.ch)
 

@@ -17,6 +17,7 @@ import (
 	"github.com/mrPTqp/metrics/internal/server/repository"
 )
 
+// Структура приложения
 type App struct {
 	cfg      *bootstrap.AppComponents
 	server   *http.Server
@@ -26,6 +27,7 @@ type App struct {
 	repo     repository.MetricRepository
 }
 
+// Возвращает новый экземпляр приложения
 func NewApp(components *bootstrap.AppComponents) *App {
 	r := chi.NewRouter()
 
@@ -70,6 +72,7 @@ func wrap(h http.HandlerFunc, middlewares ...func(http.Handler) http.Handler) ht
 	})
 }
 
+// Запускает компоненты приложения
 func (a *App) RunWithContext(ctx context.Context) {
 	logger := a.cfg.Logger
 	logger.Info("Starting HTTP server", zap.String("address", a.cfg.Config.Address.String()))
@@ -110,6 +113,7 @@ func (a *App) runBackgroundJobs(ctx context.Context) {
 	}
 }
 
+// Обеспечивает корректное завершение работы приложения
 func (a *App) Shutdown(shutdownCtx context.Context) {
 	a.shutdown.Do(func() {
 		logger := a.cfg.Logger

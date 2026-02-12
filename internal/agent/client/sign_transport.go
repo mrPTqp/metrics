@@ -10,12 +10,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// Transport для подписи запросов и проверки подписи ответов
 type SigningTransport struct {
 	RoundTripper http.RoundTripper
 	SecretKey    string
 	Logger       *zap.Logger
 }
 
+// Подписываем запрос и проверяем подпись ответа
 func (st *SigningTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	var bodyBytes []byte
 	var err error

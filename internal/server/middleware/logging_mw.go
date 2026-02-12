@@ -46,6 +46,7 @@ func readBody(r io.ReadCloser) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// Middleware для логирования HTTP-запросов и ответов. Запрос и ответ логируются одним логом с контекстом
 func LoggingMiddleware(baseLogger *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

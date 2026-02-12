@@ -10,12 +10,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// Создатель резервной копии метрик
 type Backuper struct {
 	service service.MetricsService
 	storage *storage.FileStorage
 	logger  *zap.Logger
 }
 
+// Возвращает новый экземпляр Backuper
 func NewBackuper(service service.MetricsService, storage *storage.FileStorage, logger *zap.Logger) *Backuper {
 	return &Backuper{
 		service: service,
@@ -24,6 +26,7 @@ func NewBackuper(service service.MetricsService, storage *storage.FileStorage, l
 	}
 }
 
+// Выполняет резервное копирование метрик в файл
 func (b *Backuper) Backup(ctx context.Context) error {
 	log := contextkey.LoggerFromContext(ctx)
 	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)

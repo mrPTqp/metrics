@@ -15,6 +15,7 @@ type Flags struct {
 	AuditURL        *string
 }
 
+// Парсинг флагов
 func ParseFlags() *Flags {
 	var addr string
 	var storeInterval int

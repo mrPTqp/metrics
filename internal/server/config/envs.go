@@ -16,6 +16,7 @@ type Envs struct {
 	AuditURL        *string
 }
 
+// Парсинг переменных окружения
 func ParseEnvs() *Envs {
 	var address *string
 	var storeInterval *int

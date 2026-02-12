@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Обработчик событий аудита с сохранением в файл
 type FileAuditProcessor struct {
 	ch     chan []byte
 	file   *os.File
@@ -16,6 +17,7 @@ type FileAuditProcessor struct {
 	logger *zap.Logger
 }
 
+// Возвращает новый экземпляр FileAuditProcessor
 func NewFileAuditProcessor(filePath string, logger *zap.Logger) (*FileAuditProcessor, error) {
 	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -45,6 +47,7 @@ func (p *FileAuditProcessor) writer() {
 	}
 }
 
+// Записывает событие аудита в файл
 func (p *FileAuditProcessor) Write(event AuditEvent) error {
 	select {
 	case p.ch <- event.marshalWithNewline():
@@ -60,6 +63,7 @@ func (e *AuditEvent) marshalWithNewline() []byte {
 	return append(data, '\n')
 }
 
+// Останавливает обработчик аудита с сохраниением в файл
 func (p *FileAuditProcessor) ShutDown(ctx context.Context) error {
 	close(p.ch)
 

@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Шина для публикации событий обработки метрик
 type EventBus struct {
 	events     chan AuditEvent
 	processors []AuditProcessor
@@ -13,6 +14,7 @@ type EventBus struct {
 	logger     *zap.Logger
 }
 
+// Возвращает новый экземпляр EventBus
 func NewEventBus(processors []AuditProcessor, bufferSize int, logger *zap.Logger) *EventBus {
 	bus := &EventBus{
 		events:     make(chan AuditEvent, bufferSize),
@@ -24,6 +26,7 @@ func NewEventBus(processors []AuditProcessor, bufferSize int, logger *zap.Logger
 	return bus
 }
 
+// Публикует событие в шину
 func (b *EventBus) Publish(e AuditEvent) {
 	select {
 	case b.events <- e:
@@ -52,6 +55,7 @@ func (b *EventBus) sendToProcessor(processor AuditProcessor, event AuditEvent) {
 	}
 }
 
+// Останавливает шину
 func (b *EventBus) ShutDown(ctx context.Context) error {
 	close(b.events)
 

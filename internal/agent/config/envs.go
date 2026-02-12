@@ -13,6 +13,7 @@ type Envs struct {
 	RateLimit      *int
 }
 
+// Парсинг переменных окружения
 func ParseEnvs() *Envs {
 	var address *string
 	var reportInterval *int

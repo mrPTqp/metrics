@@ -8,6 +8,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// Middleware для распаковки запросов с gzip сжатием и сжатия ответов.
+// По заголовку "Accept-Encoding" определяет необходимость распаковки ответа.
+// По заголовку "Content-Encoding" определяет необходимость сжатия ответа
 func GzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log := contextkey.LoggerFromContext(r.Context())

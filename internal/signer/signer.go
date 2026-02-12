@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Подписывает контент
 func Sign(content []byte, secretKey *string) (*string, error) {
 	h, err := computeHMAC(content, secretKey)
 	if err != nil {
@@ -25,6 +26,7 @@ func computeHMAC(content []byte, secretKey *string) (*string, error) {
 	return &hmac, nil
 }
 
+// Проверяет подпись произвольного контента
 func Verify(content []byte, hmac *string, secretKey *string, logger *zap.Logger) bool {
 	if h, err := computeHMAC(content, secretKey); err != nil {
 		logger.Error("failed to compute HMAC", zap.Error(err))

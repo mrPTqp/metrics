@@ -19,15 +19,18 @@ import (
 	"go.uber.org/zap"
 )
 
+// Выделенный слой быстрой инициализации компонентов для запуска
 type Bootstrapper struct {
 	cfg    *config.Config
 	logger *zap.Logger
 }
 
+// Возвращает новый экземпляр Bootstrapper
 func NewBootstrapper(cfg *config.Config, logger *zap.Logger) *Bootstrapper {
 	return &Bootstrapper{cfg: cfg, logger: logger}
 }
 
+// Возвращает компоненты для запуска
 func (bs *Bootstrapper) MustRun(ctx context.Context) *AppComponents {
 	bs.logger.Info("Starting application bootstrap...")
 

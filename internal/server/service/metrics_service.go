@@ -2,6 +2,7 @@ package service
 
 import "context"
 
+// Интерфейс сервиса метрик
 type MetricsService interface {
 	SaveGaugeMetric(ctx context.Context, mName string, mValue *float64) error
 	SaveCounterMetric(ctx context.Context, mName string, mValue *int64) error

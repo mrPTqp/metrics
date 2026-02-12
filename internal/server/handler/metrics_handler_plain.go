@@ -12,6 +12,7 @@ import (
 	"github.com/mrPTqp/metrics/internal/contextkey"
 )
 
+// Сохраняет метрику из plain body запроса
 func (mh *MetricHandler) SaveMetricHandler(w http.ResponseWriter, r *http.Request) {
 	mType := chi.URLParam(r, "type")
 	mName := chi.URLParam(r, "name")
@@ -79,6 +80,7 @@ func (mh *MetricHandler) handleSaveCounterPlain(w http.ResponseWriter, ctx conte
 	mh.writeTextResponse(w, "", http.StatusOK)
 }
 
+// Возвращает метрику по ID, указанному в URL
 func (mh *MetricHandler) GetMetricHandler(w http.ResponseWriter, r *http.Request) {
 	mType := chi.URLParam(r, "type")
 	mName := chi.URLParam(r, "name")
@@ -129,12 +131,14 @@ func (mh *MetricHandler) handleGetCounterPlain(w http.ResponseWriter, ctx contex
 	mh.writeTextResponse(w, fmt.Sprintf("%d", value), http.StatusOK)
 }
 
+// Возвращает все метрики в HTML формате
 func (mh *MetricHandler) CollectMetricsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	gauges, counters := mh.service.ListAllMetrics(r.Context())
 	renderMetricsHTML(w, gauges, counters)
 }
 
+// Проверяет достуность БД
 func (mh *MetricHandler) DBHealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	log := contextkey.LoggerFromContext(r.Context())
 	if mh.service == nil {

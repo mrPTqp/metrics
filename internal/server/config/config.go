@@ -21,6 +21,7 @@ type Config struct {
 	HTTPAuditEnabled bool
 }
 
+// Загрузка конфигурации
 func LoadConfig() *Config {
 	envs := ParseEnvs()
 	flags := ParseFlags()

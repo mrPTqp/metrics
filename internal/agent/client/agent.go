@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Агент-коллектор метрик
 type MetricsAgent struct {
 	c          *http.Client
 	ec         *HTTPErrorClassifier
@@ -22,6 +23,7 @@ type MetricsAgent struct {
 	logger     *zap.Logger
 }
 
+// Возвращает новый экземпляр MetricsAgent
 func NewMetricsAgent(client *http.Client, cfg *config.Config, repository repository.MetricRepository, logger *zap.Logger) *MetricsAgent {
 	return &MetricsAgent{
 		c:          client,
@@ -32,6 +34,7 @@ func NewMetricsAgent(client *http.Client, cfg *config.Config, repository reposit
 	}
 }
 
+// Собирает основные метрики
 func (ma *MetricsAgent) PollMetrics() {
 	_, counters := ma.repository.GetAllMetrics()
 	newCounters := make(map[string]int64)
@@ -40,11 +43,13 @@ func (ma *MetricsAgent) PollMetrics() {
 	ma.repository.SaveAllMetrics(newGauges, newCounters)
 }
 
+// Собирает дополнительные метрики
 func (ma *MetricsAgent) PollAdditionalGaugeMetrics() {
 	newAdditionalGauges := CollectAdditionalGaugeMetrics()
 	ma.repository.SaveAdditionalGaugeMetrics(newAdditionalGauges)
 }
 
+// Отправляет собранные метрики на сервер
 func (ma *MetricsAgent) SendMetrics() {
 	address := ma.cfg.Address
 

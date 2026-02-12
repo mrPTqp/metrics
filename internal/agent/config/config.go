@@ -12,6 +12,7 @@ type Config struct {
 	RateLimit      int
 }
 
+// Загрузка конфигурации
 func LoadConfig() *Config {
 	flags := ParseFlags()
 	envs := ParseEnvs()

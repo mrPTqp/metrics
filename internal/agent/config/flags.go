@@ -12,6 +12,7 @@ type Flags struct {
 	RateLimit      *int
 }
 
+// Парсинг флагов
 func ParseFlags() *Flags {
 	var addr string
 	var reportInterval int

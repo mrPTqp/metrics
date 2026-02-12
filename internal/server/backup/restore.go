@@ -13,12 +13,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// Загрузчик резервной копии метрик из файла
 type Restorer struct {
 	service service.MetricsService
 	storage *storage.FileStorage
 	logger  *zap.Logger
 }
 
+// Возвращает новый экземпляр Restorer
 func NewRestorer(service service.MetricsService, storage *storage.FileStorage, logger *zap.Logger) *Restorer {
 	return &Restorer{
 		service: service,
@@ -27,6 +29,7 @@ func NewRestorer(service service.MetricsService, storage *storage.FileStorage, l
 	}
 }
 
+// Загружает метрики из файловой резервной копии
 func (r *Restorer) Restore(ctx context.Context) error {
 	log := contextkey.LoggerFromContext(ctx)
 	restoreCtx, cancel := context.WithTimeout(ctx, 10*time.Second)

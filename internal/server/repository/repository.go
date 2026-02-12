@@ -2,6 +2,7 @@ package repository
 
 import "context"
 
+// Интерфейс репозитория метрик
 type MetricRepository interface {
 	SaveGauge(ctx context.Context, name string, value *float64) error
 	SaveCounter(ctx context.Context, name string, value *int64) error

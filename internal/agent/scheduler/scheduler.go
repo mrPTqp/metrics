@@ -9,11 +9,13 @@ import (
 	"go.uber.org/zap"
 )
 
+// Планировщик сбора и отправки метрик
 type MetricsScheduler struct {
 	agent  *agent.MetricsAgent
 	logger *zap.Logger
 }
 
+// Возвращает новый экземпляр MetricsScheduler
 func NewScheduler(agent *agent.MetricsAgent, logger *zap.Logger) *MetricsScheduler {
 	return &MetricsScheduler{
 		agent:  agent,
@@ -21,6 +23,7 @@ func NewScheduler(agent *agent.MetricsAgent, logger *zap.Logger) *MetricsSchedul
 	}
 }
 
+// Запускает процесс сбора и отправки метрик
 func (s *MetricsScheduler) Start(ctx context.Context, pollInterval int, reportInterval int, rateLimit int, taskChannelSize int) {
 	taskCh := make(chan struct{}, taskChannelSize)
 	var wg sync.WaitGroup

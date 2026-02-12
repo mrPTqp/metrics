@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Сохраняет метрику из JSON body запроса
 func (mh *MetricHandler) SaveMetricHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -40,6 +41,7 @@ func (mh *MetricHandler) SaveMetricHandlerJSON(w http.ResponseWriter, r *http.Re
 	}
 }
 
+// Сохраняет метрики из JSON body запроса
 func (mh *MetricHandler) SaveMetricsHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -144,6 +146,7 @@ func (mh *MetricHandler) handleSaveCounterJSON(w http.ResponseWriter, ctx contex
 	mh.writeJSONResponse(w, resp, http.StatusOK)
 }
 
+// Возвращает метрику по ID, указанному в JSON запросе
 func (mh *MetricHandler) ValueMetricHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 

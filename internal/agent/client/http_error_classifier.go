@@ -8,12 +8,15 @@ import (
 	"github.com/mrPTqp/metrics/internal/retry"
 )
 
+// Классификтор HTTP ошибок
 type HTTPErrorClassifier struct{}
 
+// Возвращает новый экземпляр HTTPErrorClassifier
 func NewHTTPErrorClassifier() *HTTPErrorClassifier {
 	return &HTTPErrorClassifier{}
 }
 
+// Принимает решение относится ли ошибка к тем, по которым стоит повторить запрос
 func (c *HTTPErrorClassifier) Classify(err error) retry.ErrorClassification {
 	if err == nil {
 		return retry.NonRetriable
