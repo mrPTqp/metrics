@@ -1,0 +1,215 @@
+openapi: 3.0.3
+info:
+  title: Metrics Service API
+  description: Сервис для сбора и хранения метрик типа gauge и counter.
+  version: 1.0.0
+  contact:
+    name: Developer
+    email: dev@example.com
+
+servers:
+  - url: http://localhost:8080
+    description: Local server
+
+paths:
+  /:
+    get:
+      summary: Возвращает все метрики в виде HTML-страницы
+      operationId: collectMetrics
+      responses:
+        '200':
+          description: Страница с метриками
+          content:
+            text/html:
+              schema:
+                type: string
+                format: html
+
+  /update/{type}/{name}/{value}:
+    post:
+      summary: Сохраняет метрику из URL-параметров
+      operationId: saveMetricPlain
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [gauge, counter]
+          example: gauge
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+          example: cpu_usage
+        - name: value
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "0.67"
+      responses:
+        '200':
+          description: Метрика успешно сохранена
+        '400':
+          description: Неверный тип или значение метрики
+          content:
+            text/plain:
+              schema:
+                type: string
+        '500':
+          description: Внутренняя ошибка сервера
+
+  /update:
+    post:
+      summary: Сохраняет метрику в формате JSON
+      operationId: saveMetricJSON
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Metrics'
+      responses:
+        '200':
+          description: Метрика успешно сохранена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Metrics'
+        '400':
+          description: Неверный JSON или тип метрики
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервера
+
+  /updates:
+    post:
+      summary: Сохраняет несколько метрик в формате JSON
+      operationId: saveMetricsJSON
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Metrics'
+      responses:
+        '200':
+          description: Все метрики успешно сохранены
+        '400':
+          description: Ошибка валидации одной из метрик
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /value/{type}/{name}:
+    get:
+      summary: Получает значение метрики по имени и типу
+      operationId: getValuePlain
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [gauge, counter]
+          example: gauge
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+          example: cpu_usage
+      responses:
+        '200':
+          description: Значение метрики
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          description: Неверный тип метрики
+        '404':
+          description: Метрика не найдена
+
+  /value:
+    post:
+      summary: Получает значение метрики по запросу в формате JSON
+      operationId: getValueJSON
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Metrics'
+      responses:
+        '200':
+          description: Значение метрики
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Metrics'
+        '400':
+          description: Неверный тип метрики
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Метрика не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Metrics:
+      type: object
+      required:
+        - id
+        - type
+      properties:
+        id:
+          type: string
+          description: Имя метрики
+          example: cpu_usage
+        type:
+          type: string
+          enum: [gauge, counter]
+          description: Тип метрики
+          example: gauge
+        delta:
+          type: integer
+          format: int64
+          description: Значение для counter (дельта)
+          example: 123
+          nullable: true
+        value:
+          type: number
+          format: double
+          description: Значение для gauge
+          example: 0.67
+          nullable: true
+        hash:
+          type: string
+          description: Хэш метрики (опционально)
+          example: "a1b2c3d4e5"
+      example:
+        id: cpu_usage
+        type: gauge
+        value: 0.67
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Invalid JSON body"

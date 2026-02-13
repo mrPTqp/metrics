@@ -17,7 +17,7 @@ func GzipMiddleware(next http.Handler) http.Handler {
 
 		var (
 			cw *compressWriter
-			ow http.ResponseWriter = w
+			ow = w
 		)
 
 		acceptEncoding := r.Header.Get("Accept-Encoding")
