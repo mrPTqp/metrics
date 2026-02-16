@@ -6,6 +6,7 @@ import (
 
 	"github.com/mrPTqp/metrics/internal/audit"
 	"github.com/mrPTqp/metrics/internal/contextkey"
+	"go.uber.org/zap"
 )
 
 // Декоратор для аудита
@@ -27,7 +28,7 @@ func (a *AuditService) SaveGaugeMetric(ctx context.Context, mName string, mValue
 	if err := a.service.SaveGaugeMetric(ctx, mName, mValue); err != nil {
 		return err
 	}
-	a.logEvent(ctx, []string{mName})
+	a.logEvent(ctx, []string{mName}, contextkey.LoggerFromContext(ctx))
 
 	return nil
 }
@@ -37,7 +38,7 @@ func (a *AuditService) SaveCounterMetric(ctx context.Context, mName string, mVal
 	if err := a.service.SaveCounterMetric(ctx, mName, mValue); err != nil {
 		return err
 	}
-	a.logEvent(ctx, []string{mName})
+	a.logEvent(ctx, []string{mName}, contextkey.LoggerFromContext(ctx))
 	return nil
 }
 
@@ -53,7 +54,7 @@ func (a *AuditService) SaveAllMetrics(ctx context.Context, gauges map[string]flo
 	for name := range counters {
 		names = append(names, name)
 	}
-	a.logEvent(ctx, names)
+	a.logEvent(ctx, names, contextkey.LoggerFromContext(ctx))
 	return nil
 }
 
@@ -77,11 +78,13 @@ func (a *AuditService) Ping(ctx context.Context) bool {
 	return a.service.Ping(ctx)
 }
 
-func (a *AuditService) logEvent(ctx context.Context, mNames []string) {
+func (a *AuditService) logEvent(ctx context.Context, mNames []string, logger *zap.Logger) {
 	event := audit.AuditEvent{
 		TS:        time.Now().Unix(),
 		Metrics:   mNames,
 		IPAddress: contextkey.GetClientIP(ctx),
 	}
-	a.eventBus.Publish(event)
+	if err := a.eventBus.Publish(event); err != nil {
+		logger.Warn("error publish audit event", zap.Any("event", err))
+	}
 }

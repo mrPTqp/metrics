@@ -21,14 +21,14 @@ func (mh *MetricHandler) SaveMetricHandler(w http.ResponseWriter, r *http.Reques
 	log := contextkey.LoggerFromContext(r.Context())
 
 	if !isValidMetricType(mType) {
-		log.Error("Invalid metric type", zap.String("type", mType))
-		mh.writeTextError(w, "Invalid metric type", http.StatusBadRequest)
+		log.Error("invalid metric type", zap.String("type", mType))
+		mh.writeTextError(w, "invalid metric type", http.StatusBadRequest)
 		return
 	}
 
 	if !isValidMetricName(mName) {
-		log.Error("Invalid metric name", zap.String("name", mName))
-		mh.writeTextError(w, "Invalid metric name", http.StatusBadRequest)
+		log.Error("invalid metric name", zap.String("name", mName))
+		mh.writeTextError(w, "invalid metric name", http.StatusBadRequest)
 		return
 	}
 
@@ -44,16 +44,16 @@ func (mh *MetricHandler) handleSaveGaugePlain(w http.ResponseWriter, ctx context
 	floatValue, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		log := contextkey.LoggerFromContext(ctx)
-		log.Error("Error parsing gauge value", zap.String("name", name), zap.String("value", value), zap.Error(err))
-		mh.writeTextError(w, "Invalid gauge value", http.StatusBadRequest)
+		log.Error("error parsing gauge value", zap.String("name", name), zap.String("value", value), zap.Error(err))
+		mh.writeTextError(w, "invalid gauge value", http.StatusBadRequest)
 		return
 	}
 
 	err = mh.service.SaveGaugeMetric(ctx, name, &floatValue)
 	if err != nil {
 		log := contextkey.LoggerFromContext(ctx)
-		log.Error("Error saving gauge metric", zap.String("name", name), zap.Float64("value", floatValue), zap.Error(err))
-		mh.writeTextError(w, "Failed to save gauge", http.StatusBadRequest)
+		log.Error("error saving gauge metric", zap.String("name", name), zap.Float64("value", floatValue), zap.Error(err))
+		mh.writeTextError(w, "failed to save gauge", http.StatusBadRequest)
 		return
 	}
 
@@ -64,16 +64,16 @@ func (mh *MetricHandler) handleSaveCounterPlain(w http.ResponseWriter, ctx conte
 	intValue, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
 		log := contextkey.LoggerFromContext(ctx)
-		log.Error("Error parsing counter value", zap.String("name", name), zap.String("value", value), zap.Error(err))
-		mh.writeTextError(w, "Invalid counter value", http.StatusBadRequest)
+		log.Error("error parsing counter value", zap.String("name", name), zap.String("value", value), zap.Error(err))
+		mh.writeTextError(w, "invalid counter value", http.StatusBadRequest)
 		return
 	}
 
 	err = mh.service.SaveCounterMetric(ctx, name, &intValue)
 	if err != nil {
 		log := contextkey.LoggerFromContext(ctx)
-		log.Error("Error saving counter metric", zap.String("name", name), zap.Int64("value", intValue), zap.Error(err))
-		mh.writeTextError(w, "Failed to save counter", http.StatusBadRequest)
+		log.Error("error saving counter metric", zap.String("name", name), zap.Int64("value", intValue), zap.Error(err))
+		mh.writeTextError(w, "failed to save counter", http.StatusBadRequest)
 		return
 	}
 
@@ -88,13 +88,13 @@ func (mh *MetricHandler) GetMetricHandler(w http.ResponseWriter, r *http.Request
 	log := contextkey.LoggerFromContext(r.Context())
 
 	if !isValidMetricType(mType) {
-		log.Error("Invalid metric type", zap.String("type", mType))
+		log.Error("invalid metric type", zap.String("type", mType))
 		mh.writeTextError(w, "Invalid metric type", http.StatusBadRequest)
 		return
 	}
 
 	if !isValidMetricName(mName) {
-		log.Error("Invalid metric name", zap.String("name", mName))
+		log.Error("invalid metric name", zap.String("name", mName))
 		mh.writeTextError(w, "Invalid metric name", http.StatusBadRequest)
 		return
 	}
@@ -111,7 +111,7 @@ func (mh *MetricHandler) handleGetGaugePlain(w http.ResponseWriter, ctx context.
 	value, err := mh.service.GetGaugeMetric(ctx, name)
 	if err != nil {
 		log := contextkey.LoggerFromContext(ctx)
-		log.Error("Error getting gauge metric", zap.String("name", name), zap.Error(err))
+		log.Error("error getting gauge metric", zap.String("name", name), zap.Error(err))
 		mh.writeTextError(w, "gauge not found", http.StatusNotFound)
 		return
 	}
@@ -123,7 +123,7 @@ func (mh *MetricHandler) handleGetCounterPlain(w http.ResponseWriter, ctx contex
 	value, err := mh.service.GetCounterMetric(ctx, name)
 	if err != nil {
 		log := contextkey.LoggerFromContext(ctx)
-		log.Error("Error getting counter metric", zap.String("name", name), zap.Error(err))
+		log.Error("error getting counter metric", zap.String("name", name), zap.Error(err))
 		mh.writeTextError(w, "counter not found", http.StatusNotFound)
 		return
 	}
@@ -142,16 +142,16 @@ func (mh *MetricHandler) CollectMetricsHandler(w http.ResponseWriter, r *http.Re
 func (mh *MetricHandler) DBHealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	log := contextkey.LoggerFromContext(r.Context())
 	if mh.service == nil {
-		log.Error("Service not available")
+		log.Error("service not available")
 		http.Error(w, "service not available", http.StatusInternalServerError)
 		return
 	}
 	if !mh.service.Ping(r.Context()) {
-		log.Error("Database unreachable")
+		log.Error("database unreachable")
 		http.Error(w, "database unreachable", http.StatusInternalServerError)
 		return
 	}
-	log.Info("Database health check OK")
+	log.Info("database health check OK")
 	w.WriteHeader(http.StatusOK)
 }
 

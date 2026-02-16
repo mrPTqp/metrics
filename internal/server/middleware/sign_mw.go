@@ -33,7 +33,7 @@ func SignMiddleware(key string) func(http.Handler) http.Handler {
 
 			bodyContent, err = io.ReadAll(r.Body)
 			if err != nil {
-				log.Error("Failed to read request body", zap.Error(err))
+				log.Error("failed to read request body", zap.Error(err))
 				writeJSONError(w, "invalid request body", http.StatusBadRequest, log)
 				return
 			}
@@ -42,13 +42,13 @@ func SignMiddleware(key string) func(http.Handler) http.Handler {
 			signHeader := r.Header.Get("HashSHA256")
 			if signHeader != "" {
 				if !signer.Verify(bodyContent, &signHeader, &key, log) {
-					log.Warn("Request signature verification failed",
+					log.Warn("request signature verification failed",
 						zap.String("url", r.URL.String()),
 						zap.String("method", r.Method))
 					writeJSONError(w, "invalid signature", http.StatusBadRequest, log)
 					return
 				}
-				log.Debug("Request signature verified successfully",
+				log.Debug("request signature verified successfully",
 					zap.String("method", r.Method),
 					zap.String("url", r.URL.String()))
 			}
@@ -59,12 +59,12 @@ func SignMiddleware(key string) func(http.Handler) http.Handler {
 			responseBody := ww.body.Bytes()
 			sign, err := signer.Sign(responseBody, &key)
 			if err != nil {
-				log.Error("Failed to sign response", zap.Error(err))
+				log.Error("failed to sign response", zap.Error(err))
 				writeJSONError(w, "failed to sign response", http.StatusInternalServerError, log)
 				return
 			}
 
-			log.Debug("Response signed successfully",
+			log.Debug("response signed successfully",
 				zap.String("hash", *sign),
 				zap.Int("body_size", len(responseBody)))
 

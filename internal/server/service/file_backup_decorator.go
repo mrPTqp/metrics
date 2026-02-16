@@ -32,7 +32,7 @@ func (s *FileBackupService) SaveGaugeMetric(ctx context.Context, mName string, m
 		return err
 	}
 	if err := s.repo.SaveGauge(ctx, mName, mValue); err != nil {
-		log.Warn("Failed to backup gauge to file", zap.String("name", mName), zap.Error(err))
+		log.Warn("failed to backup gauge to file", zap.String("name", mName), zap.Error(err))
 	}
 	return nil
 }
@@ -44,7 +44,7 @@ func (s *FileBackupService) SaveCounterMetric(ctx context.Context, mName string,
 		return err
 	}
 	if err := s.repo.SaveCounter(ctx, mName, mValue); err != nil {
-		log.Warn("Failed to backup counter to file", zap.String("name", mName), zap.Error(err))
+		log.Warn("failed to backup counter to file", zap.String("name", mName), zap.Error(err))
 	}
 	return nil
 }

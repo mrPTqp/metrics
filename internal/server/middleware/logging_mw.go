@@ -72,7 +72,7 @@ func LoggingMiddleware(baseLogger *zap.Logger) func(http.Handler) http.Handler {
 				var err error
 				reqBody, err = readBody(r.Body)
 				if err != nil {
-					log.Error("Failed to read request body", zap.Error(err))
+					log.Error("failed to read request body", zap.Error(err))
 				} else {
 					r.Body = io.NopCloser(bytes.NewBuffer(reqBody))
 				}
@@ -103,7 +103,7 @@ func LoggingMiddleware(baseLogger *zap.Logger) func(http.Handler) http.Handler {
 				)
 
 				if p := recover(); p != nil {
-					log.Error("Panic recovered",
+					log.Error("panic recovered",
 						zap.Any("panic", p),
 						zap.ByteString("request_body", reqBody),
 						zap.ByteString("response_body", bodyBuf.Bytes()),
@@ -113,7 +113,7 @@ func LoggingMiddleware(baseLogger *zap.Logger) func(http.Handler) http.Handler {
 				}
 
 				if status >= 500 {
-					log.Error("Server error",
+					log.Error("server error",
 						zap.ByteString("request_body", reqBody),
 						zap.ByteString("response_body", bodyBuf.Bytes()),
 					)
@@ -121,14 +121,14 @@ func LoggingMiddleware(baseLogger *zap.Logger) func(http.Handler) http.Handler {
 				}
 
 				if status >= 400 {
-					log.Warn("Client error",
+					log.Warn("client error",
 						zap.ByteString("request_body", reqBody),
 						zap.ByteString("response_body", bodyBuf.Bytes()),
 					)
 					return
 				}
 
-				log.Info("Successful request")
+				log.Info("successful request")
 			}()
 
 			next.ServeHTTP(lrw, r)

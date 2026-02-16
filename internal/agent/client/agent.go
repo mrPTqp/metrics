@@ -141,5 +141,5 @@ func (ma *MetricsAgent) SendMetrics() {
 		return
 	}
 
-	ma.logger.Info("Metrics successfully sent to server")
+	ma.logger.Info("metrics successfully sent to server")
 }

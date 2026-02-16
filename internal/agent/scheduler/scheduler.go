@@ -35,7 +35,7 @@ func (s *MetricsScheduler) Start(ctx context.Context, pollInterval int, reportIn
 		pollTicker.Stop()
 		reportTicker.Stop()
 		close(taskCh)
-		s.logger.Info("Scheduler stopped: tickers stopped and task channel closed")
+		s.logger.Info("scheduler stopped: tickers stopped and task channel closed")
 	}()
 
 	for i := range rateLimit {
@@ -46,9 +46,9 @@ func (s *MetricsScheduler) Start(ctx context.Context, pollInterval int, reportIn
 	for {
 		select {
 		case <-ctx.Done():
-			s.logger.Info("Shutdown signal received, waiting for active workers to finish...")
+			s.logger.Info("shutdown signal received, waiting for active workers to finish...")
 			wg.Wait()
-			s.logger.Info("All workers have stopped. Scheduler shutdown complete.")
+			s.logger.Info("all workers have stopped. Scheduler shutdown complete.")
 			return
 
 		case <-pollTicker.C:
@@ -58,9 +58,9 @@ func (s *MetricsScheduler) Start(ctx context.Context, pollInterval int, reportIn
 		case <-reportTicker.C:
 			select {
 			case taskCh <- struct{}{}:
-				s.logger.Debug("Scheduled metrics send")
+				s.logger.Debug("scheduled metrics send")
 			default:
-				s.logger.Warn("Task queue is full, skipping metrics send")
+				s.logger.Warn("task queue is full, skipping metrics send")
 			}
 		}
 	}
@@ -68,13 +68,13 @@ func (s *MetricsScheduler) Start(ctx context.Context, pollInterval int, reportIn
 
 func (s *MetricsScheduler) worker(id int, tasks <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
-	s.logger.Debug("Worker started and waiting for tasks", zap.Int("worker_id", id))
+	s.logger.Debug("worker started and waiting for tasks", zap.Int("worker_id", id))
 
 	for range tasks {
-		s.logger.Debug("Worker received task, sending metrics", zap.Int("worker_id", id))
+		s.logger.Debug("worker received task, sending metrics", zap.Int("worker_id", id))
 		s.agent.SendMetrics()
-		s.logger.Debug("Worker finished sending metrics", zap.Int("worker_id", id))
+		s.logger.Debug("worker finished sending metrics", zap.Int("worker_id", id))
 	}
 
-	s.logger.Debug("Worker shutting down (task channel closed)", zap.Int("worker_id", id))
+	s.logger.Debug("worker shutting down (task channel closed)", zap.Int("worker_id", id))
 }

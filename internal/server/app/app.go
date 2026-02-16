@@ -75,7 +75,7 @@ func wrap(h http.HandlerFunc, middlewares ...func(http.Handler) http.Handler) ht
 // Запускает компоненты приложения
 func (a *App) RunWithContext(ctx context.Context) {
 	logger := a.cfg.Logger
-	logger.Info("Starting HTTP server", zap.String("address", a.cfg.Config.Address.String()))
+	logger.Info("starting HTTP server", zap.String("address", a.cfg.Config.Address.String()))
 
 	go func() {
 		if err := a.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -95,17 +95,17 @@ func (a *App) runBackgroundJobs(ctx context.Context) {
 				if log == nil {
 					log = a.cfg.Logger // fallback
 				}
-				log.Info("Background job ticker stopped", zap.String("reason", ctx.Err().Error()))
+				log.Info("background job ticker stopped", zap.String("reason", ctx.Err().Error()))
 				return
 			case <-a.ticker.C:
 				log := contextkey.LoggerFromContext(ctx)
 				if log == nil {
 					log = a.cfg.Logger
 				}
-				log.Debug("Triggering periodic backup...")
+				log.Debug("triggering periodic backup...")
 				backupCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				if err := a.backuper.Backup(backupCtx); err != nil {
-					log.Error("Failed to backup metrics", zap.Error(err))
+					log.Error("failed to backup metrics", zap.Error(err))
 				}
 				cancel()
 			}
@@ -117,52 +117,52 @@ func (a *App) runBackgroundJobs(ctx context.Context) {
 func (a *App) Shutdown(shutdownCtx context.Context) {
 	a.shutdown.Do(func() {
 		logger := a.cfg.Logger
-		logger.Info("Shutting down server gracefully...")
+		logger.Info("shutting down server gracefully...")
 
 		a.ticker.Stop()
-		logger.Debug("Ticker stopped")
+		logger.Debug("ticker stopped")
 
 		if err := a.server.Shutdown(shutdownCtx); err != nil {
-			logger.Error("Server forced to shutdown", zap.Error(err))
+			logger.Error("server forced to shutdown", zap.Error(err))
 		} else {
-			logger.Info("Server stopped gracefully")
+			logger.Info("server stopped gracefully")
 		}
 
 		if a.cfg.EventBus != nil {
-			logger.Info("Shutting down audit event bus...")
+			logger.Info("shutting down audit event bus...")
 			if err := a.cfg.EventBus.ShutDown(shutdownCtx); err != nil {
-				logger.Warn("EventBus shutdown timeout", zap.Error(err))
+				logger.Warn("eventBus shutdown timeout", zap.Error(err))
 			} else {
-				logger.Info("EventBus stopped")
+				logger.Info("eventBus stopped")
 			}
 		}
 
 		for _, proc := range a.cfg.AuditProcessors {
 			if closer, ok := proc.(interface{ Shutdown(context.Context) error }); ok {
 				if err := closer.Shutdown(shutdownCtx); err != nil {
-					logger.Warn("Audit processor shutdown failed", zap.Error(err))
+					logger.Warn("audit processor shutdown failed", zap.Error(err))
 				}
 			}
 		}
 
 		if a.backuper != nil {
-			logger.Info("Saving metrics to file before shutdown...")
+			logger.Info("saving metrics to file before shutdown...")
 			backupCtx, cancel := context.WithTimeout(shutdownCtx, 10*time.Second)
 			err := a.backuper.Backup(backupCtx)
 			cancel()
 			if err != nil {
-				logger.Warn("Failed to save metrics on shutdown", zap.Error(err))
+				logger.Warn("failed to save metrics on shutdown", zap.Error(err))
 			} else {
-				logger.Info("Metrics saved on shutdown")
+				logger.Info("metrics saved on shutdown")
 			}
 		}
 
 		if a.repo != nil {
-			logger.Info("Closing storage connection...")
+			logger.Info("closing storage connection...")
 			if err := a.repo.Close(); err != nil {
-				logger.Error("Error closing storage connection", zap.Error(err))
+				logger.Error("error closing storage connection", zap.Error(err))
 			} else {
-				logger.Info("Storage connection closed")
+				logger.Info("storage connection closed")
 			}
 		}
 	})

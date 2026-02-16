@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -31,28 +32,28 @@ func NewBootstrapper(cfg *config.Config, logger *zap.Logger) *Bootstrapper {
 }
 
 // Возвращает компоненты для запуска
-func (bs *Bootstrapper) MustRun(ctx context.Context) *AppComponents {
-	bs.logger.Info("Starting application bootstrap...")
+func (bs *Bootstrapper) MustRun(ctx context.Context) (*AppComponents, error) {
+	bs.logger.Info("starting application bootstrap...")
 
 	var mr repository.MetricRepository
 	if bs.cfg.DatabaseDsn != nil && *bs.cfg.DatabaseDsn != "" {
-		bs.logger.Info("Applying database migrations...")
+		bs.logger.Info("applying database migrations...")
 		if err := migrations.RunMigrations(*bs.cfg.DatabaseDsn, bs.logger); err != nil {
-			bs.logger.Fatal("Migration failed", zap.Error(err))
+			return nil, fmt.Errorf("migration failed: %w", err)
 		}
-		bs.logger.Info("Migrations applied successfully or no changes")
+		bs.logger.Info("migrations applied successfully or no changes")
 
 		var err error
 		mr, err = storage.NewPostgresStorage(*bs.cfg.DatabaseDsn, bs.logger)
 		if err != nil {
-			bs.logger.Fatal("Init postgres storage error", zap.Error(err))
+			return nil, fmt.Errorf("init postgres storage error: %w", err)
 		}
 
 		checkCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		ok := mr.CheckStorageAvailability(checkCtx)
 		cancel()
 		if !ok {
-			bs.logger.Fatal("Postgres connection check failed")
+			return nil, fmt.Errorf("postgres connection check failed: %w", err)
 		}
 	} else {
 		mr = storage.NewMemStorage()
@@ -77,10 +78,10 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) *AppComponents {
 	if bs.cfg.FileAuditEnabled {
 		proc, err := audit.NewFileAuditProcessor(bs.cfg.AuditFilePath, bs.logger)
 		if err != nil {
-			bs.logger.Fatal("Failed to create file audit processor", zap.Error(err))
+			return nil, fmt.Errorf("failed to create file audit processor: %w", err)
 		}
 		auditProcessors = append(auditProcessors, proc)
-		bs.logger.Info("File audit enabled", zap.String("path", bs.cfg.AuditFilePath))
+		bs.logger.Info("file audit enabled", zap.String("path", bs.cfg.AuditFilePath))
 	}
 	if bs.cfg.HTTPAuditEnabled {
 		proc := audit.NewHTTPAuditProcessor(*bs.cfg.AuditURL, bs.logger)
@@ -98,7 +99,7 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) *AppComponents {
 		err := r.Restore(restoreCtx)
 		cancel()
 		if err != nil {
-			bs.logger.Error("Failed to restore metrics", zap.Error(err))
+			return nil, fmt.Errorf("failed to restore metrics: %w", err)
 		}
 	}
 
@@ -123,7 +124,7 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) *AppComponents {
 		Middlewares:     mws,
 		EventBus:        eventBus,
 		AuditProcessors: auditProcessors,
-	}
+	}, nil
 }
 
 type AppComponents struct {

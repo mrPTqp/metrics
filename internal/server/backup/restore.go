@@ -39,27 +39,27 @@ func (r *Restorer) Restore(ctx context.Context) error {
 	if err != nil {
 		var syntaxError *json.SyntaxError
 		if errors.Is(err, io.EOF) {
-			log.Info("Snapshot file is empty, starting fresh")
+			log.Info("snapshot file is empty, starting fresh")
 			return nil
 		}
 		if errors.As(err, &syntaxError) {
-			log.Warn("Snapshot file is corrupted, starting fresh", zap.Error(err))
+			log.Warn("snapshot file is corrupted, starting fresh", zap.Error(err))
 			return nil
 		}
-		log.Fatal("Failed to restore data", zap.Error(err))
+		log.Fatal("failed to restore data", zap.Error(err))
 	}
 
 	if len(gauges) == 0 && len(counters) == 0 {
-		log.Info("No metrics found in snapshot, starting fresh")
+		log.Info("no metrics found in snapshot, starting fresh")
 		return nil
 	}
 
 	if err := r.service.SaveAllMetrics(restoreCtx, gauges, counters); err != nil {
-		log.Error("Failed to load metrics into memory", zap.Error(err))
+		log.Error("failed to load metrics into memory", zap.Error(err))
 		return err
 	}
 
-	log.Info("Restore completed",
+	log.Info("restore completed",
 		zap.Int("gauges", len(gauges)),
 		zap.Int("counters", len(counters)))
 	return nil

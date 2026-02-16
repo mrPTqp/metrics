@@ -20,30 +20,31 @@ func main() {
 	}()
 
 	cfg := config.LoadConfig()
-	log.Info("Configuration created", zap.Any("config", cfg))
+	log.Info("configuration created", zap.Any("config", cfg))
 
 	bootstrapper := bootstrap.NewBootstrapper(cfg, log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	components := bootstrapper.MustRun(ctx)
-	if components == nil {
-		log.Fatal("Failed to bootstrap application")
+	var components *bootstrap.AppComponents
+	var err error
+	if components, err = bootstrapper.MustRun(ctx); err != nil {
+		log.Fatal("failed to bootstrap application", zap.Error(err))
 	}
 
 	application := app.NewApp(components)
 
 	go application.RunWithContext(ctx)
 
-	log.Info("Application started")
+	log.Info("application started")
 
 	<-ctx.Done()
-	log.Info("Shutdown signal received")
+	log.Info("shutdown signal received")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	application.Shutdown(shutdownCtx)
-	log.Info("Application stopped")
+	log.Info("application stopped")
 }

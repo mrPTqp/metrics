@@ -15,19 +15,19 @@ func RunMigrations(dsn string, logger *zap.Logger) error {
 	defer m.Close()
 
 	current, _, _ := m.Version()
-	logger.Info("Current migration version", zap.Uint("version", current))
+	logger.Info("current migration version", zap.Uint("version", current))
 
 	if err := m.Up(); err != nil {
 		if err == migrate.ErrNoChange {
-			logger.Info("No migrations to apply")
+			logger.Info("no migrations to apply")
 			return nil
 		}
 
-		logger.Error("Migration error, attempting rollback...", zap.Error(err))
+		logger.Error("migration error, attempting rollback...", zap.Error(err))
 		if rollbackErr := m.Down(); rollbackErr != nil {
-			logger.Error("Rollback after migration failure failed", zap.Error(rollbackErr))
+			logger.Error("rollback after migration failure failed", zap.Error(rollbackErr))
 		} else {
-			logger.Info("Rollback after migration failure succeeded")
+			logger.Info("rollback after migration failure succeeded")
 		}
 
 		return err
@@ -35,9 +35,9 @@ func RunMigrations(dsn string, logger *zap.Logger) error {
 
 	newVersion, _, _ := m.Version()
 	if newVersion > current {
-		logger.Info("Successfully migrated", zap.Uint("from", current), zap.Uint("to", newVersion))
+		logger.Info("successfully migrated", zap.Uint("from", current), zap.Uint("to", newVersion))
 	} else {
-		logger.Info("No new migrations found")
+		logger.Info("no new migrations found")
 	}
 
 	return nil

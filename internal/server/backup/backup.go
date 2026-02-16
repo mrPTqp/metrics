@@ -36,10 +36,10 @@ func (b *Backuper) Backup(ctx context.Context) error {
 
 	err := b.storage.SaveAllMetrics(timeoutCtx, gauges, counters)
 	if err != nil {
-		log.Error("Failed to save metrics to file", zap.Error(err))
+		log.Error("failed to save metrics to file", zap.Error(err))
 		return err
 	}
 
-	log.Info("Metrics successfully backed up")
+	log.Info("metrics successfully backed up")
 	return nil
 }

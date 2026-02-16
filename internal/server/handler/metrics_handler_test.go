@@ -104,7 +104,7 @@ func TestMetricHandler_SaveMetricHandlerJSON(t *testing.T) {
 			}
 
 			body, _ := io.ReadAll(resp.Body)
-			t.Logf("Response body: %s", body)
+			t.Logf("response body: %s", body)
 
 			var result map[string]interface{}
 			if err := json.Unmarshal(body, &result); err != nil {
@@ -183,7 +183,7 @@ func TestMetricHandler_ValueMetricHandlerJSON(t *testing.T) {
 			handler := NewMetricHandler(mockSvc, logger)
 
 			reqBody, _ := json.Marshal(tt.input)
-			t.Logf("Request JSON: %s", reqBody)
+			t.Logf("request JSON: %s", reqBody)
 
 			req := httptest.NewRequest("POST", "/value/", bytes.NewReader(reqBody))
 			req.Header.Set("Content-Type", "application/json")
@@ -202,7 +202,7 @@ func TestMetricHandler_ValueMetricHandlerJSON(t *testing.T) {
 			}
 
 			body, _ := io.ReadAll(resp.Body)
-			t.Logf("Response body: %s", body)
+			t.Logf("response body: %s", body)
 
 			var result map[string]interface{}
 			if err := json.Unmarshal(body, &result); err != nil {

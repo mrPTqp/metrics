@@ -30,7 +30,7 @@ func (ms *BaseMetricService) SaveGaugeMetric(ctx context.Context, mName string, 
 		return err
 	}
 	log := contextkey.LoggerFromContext(ctx)
-	log.Debug("Saved gauge", zap.String("name", mName), zap.Float64("value", *mValue))
+	log.Debug("saved gauge", zap.String("name", mName), zap.Float64("value", *mValue))
 	return nil
 }
 
@@ -41,7 +41,7 @@ func (ms *BaseMetricService) SaveCounterMetric(ctx context.Context, mName string
 		return err
 	}
 	log := contextkey.LoggerFromContext(ctx)
-	log.Debug("Saved counter", zap.String("name", mName), zap.Int64("value", *mValue))
+	log.Debug("saved counter", zap.String("name", mName), zap.Int64("value", *mValue))
 	return nil
 }
 
@@ -52,7 +52,7 @@ func (ms *BaseMetricService) GetGaugeMetric(ctx context.Context, mName string) (
 		return 0, err
 	}
 	log := contextkey.LoggerFromContext(ctx)
-	log.Debug("Retrieved gauge", zap.String("name", mName), zap.Float64("value", mValue))
+	log.Debug("retrieved gauge", zap.String("name", mName), zap.Float64("value", mValue))
 	return mValue, nil
 }
 
@@ -63,7 +63,7 @@ func (ms *BaseMetricService) GetCounterMetric(ctx context.Context, mName string)
 		return 0, err
 	}
 	log := contextkey.LoggerFromContext(ctx)
-	log.Debug("Retrieved counter", zap.String("name", mName), zap.Int64("value", mValue))
+	log.Debug("retrieved counter", zap.String("name", mName), zap.Int64("value", mValue))
 	return mValue, nil
 }
 
@@ -72,14 +72,14 @@ func (ms *BaseMetricService) ListAllMetrics(ctx context.Context) (map[string]flo
 	gauges, err := ms.repo.ListGauges(ctx)
 	if err != nil {
 		log := contextkey.LoggerFromContext(ctx)
-		log.Error("Failed to list gauges", zap.Error(err))
+		log.Error("failed to list gauges", zap.Error(err))
 		gauges = make(map[string]float64)
 	}
 
 	counters, err := ms.repo.ListCounters(ctx)
 	if err != nil {
 		log := contextkey.LoggerFromContext(ctx)
-		log.Error("Failed to list counters", zap.Error(err))
+		log.Error("failed to list counters", zap.Error(err))
 		counters = make(map[string]int64)
 	}
 

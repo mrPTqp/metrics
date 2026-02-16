@@ -41,7 +41,7 @@ func GzipMiddleware(next http.Handler) http.Handler {
 		if sendsGzip {
 			cr, err := newCompressReader(r.Body)
 			if err != nil {
-				log.Error("Error creating compress reader", zap.Error(err))
+				log.Error("error creating compress reader", zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}

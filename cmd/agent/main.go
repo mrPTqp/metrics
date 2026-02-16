@@ -59,7 +59,7 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	log.Info("Shutdown signal received")
-	log.Info("Waiting for scheduler to finish...")
-	log.Info("Agent stopped gracefully")
+	log.Info("shutdown signal received")
+	log.Info("waiting for scheduler to finish...")
+	log.Info("agent stopped gracefully")
 }
