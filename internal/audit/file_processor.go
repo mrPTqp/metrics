@@ -38,8 +38,8 @@ func NewFileAuditProcessor(filePath string, logger *zap.Logger) (*FileAuditProce
 func (p *FileAuditProcessor) writer() {
 	defer close(p.done)
 	writer := bufio.NewWriter(p.file)
-	defer writer.Flush()
-	defer p.file.Close()
+	defer func() { _ = writer.Flush() }()
+	defer func() { _ = p.file.Close() }()
 
 	for data := range p.ch {
 		_, _ = writer.Write(data)

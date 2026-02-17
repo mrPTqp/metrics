@@ -117,11 +117,10 @@ func (ma *MetricsAgent) SendMetrics() {
 		context.Background(),
 		ma.ec,
 		func() error {
-			r, err := ma.c.Do(httpReq)
-			if err != nil {
-				return err
+			r, err2 := ma.c.Do(httpReq)
+			if err2 != nil {
+				return err2
 			}
-			defer r.Body.Close()
 
 			resp = r
 			return nil
@@ -129,6 +128,8 @@ func (ma *MetricsAgent) SendMetrics() {
 		3,
 		1*time.Second,
 	)
+	defer func() { _ = resp.Body.Close() }()
+	
 	if err != nil {
 		ma.logger.Error("failed to send metrics after retries", zap.Error(err))
 		return

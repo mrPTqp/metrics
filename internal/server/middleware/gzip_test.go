@@ -135,7 +135,7 @@ func TestCompressWriter_Write(t *testing.T) {
 				if err != nil {
 					t.Fatalf("failed to create gzip reader: %v", err)
 				}
-				defer gr.Close()
+				defer func() { _ = gr.Close() }()
 
 				decompressed, err := io.ReadAll(gr)
 				if err != nil {
@@ -243,7 +243,7 @@ func TestCompressWriter_Write_CallsWriteHeader(t *testing.T) {
 	cw := newCompressWriter(w, true, logger)
 
 	w.Header().Set("Content-Type", "application/json")
-	cw.Write([]byte("test"))
+	_, _ = cw.Write([]byte("test"))
 
 	if !cw.headerWritten {
 		t.Error("Write() should call WriteHeader() automatically")
@@ -309,8 +309,8 @@ func TestCompressReader_Read(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to write compressed data: %v", err)
 	}
-	if err := gw.Close(); err != nil {
-		t.Fatalf("failed to close gzip writer: %v", err)
+	if err2 := gw.Close(); err2 != nil {
+		t.Fatalf("failed to close gzip writer: %v", err2)
 	}
 	compressedData := buf.Bytes()
 
@@ -333,8 +333,8 @@ func TestCompressReader_Read(t *testing.T) {
 func TestCompressReader_Close(t *testing.T) {
 	var buf bytes.Buffer
 	gw := gzip.NewWriter(&buf)
-	gw.Write([]byte("test"))
-	gw.Close()
+	_, _ = gw.Write([]byte("test"))
+	_ = gw.Close()
 
 	r := io.NopCloser(bytes.NewReader(buf.Bytes()))
 	cr, err := newCompressReader(r)
@@ -359,7 +359,7 @@ func TestCompressReader_InvalidGzipData(t *testing.T) {
 
 	cr, err := newCompressReader(r)
 	if err == nil {
-		cr.Close()
+		_ = cr.Close()
 		t.Error("expected error for invalid gzip data, got nil")
 	}
 }
@@ -369,7 +369,7 @@ func TestGzipMiddleware_CompressResponse(t *testing.T) {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(testData)
+		_, _ = w.Write(testData)
 	})
 
 	middleware := GzipMiddleware(handler)
@@ -421,7 +421,7 @@ func TestGzipMiddleware_CompressResponse(t *testing.T) {
 				if err != nil {
 					t.Fatalf("failed to create gzip reader: %v", err)
 				}
-				defer gr.Close()
+				defer func() { _ = gr.Close() }()
 
 				decompressed, err := io.ReadAll(gr)
 				if err != nil {
@@ -448,8 +448,8 @@ func TestGzipMiddleware_DecompressRequest(t *testing.T) {
 
 	var buf bytes.Buffer
 	gw := gzip.NewWriter(&buf)
-	gw.Write(originalData)
-	gw.Close()
+	_, _ = gw.Write(originalData)
+	_ = gw.Close()
 	compressedData := buf.Bytes()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -534,8 +534,8 @@ func TestGzipMiddleware_CompressAndDecompress(t *testing.T) {
 
 	var reqBuf bytes.Buffer
 	reqGw := gzip.NewWriter(&reqBuf)
-	reqGw.Write(originalRequestData)
-	reqGw.Close()
+	_, _ = reqGw.Write(originalRequestData)
+	_ = reqGw.Close()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
@@ -548,7 +548,7 @@ func TestGzipMiddleware_CompressAndDecompress(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(originalResponseData)
+		_, _ = w.Write(originalResponseData)
 	})
 
 	middleware := GzipMiddleware(handler)
@@ -569,7 +569,7 @@ func TestGzipMiddleware_CompressAndDecompress(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create gzip reader: %v", err)
 	}
-	defer gr.Close()
+	defer func() { _ = gr.Close() }()
 
 	decompressed, err := io.ReadAll(gr)
 	if err != nil {
@@ -601,7 +601,7 @@ func TestGzipMiddleware_ContentTypeCompression(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", tc.contentType)
-				w.Write([]byte("test data"))
+				_, _ = w.Write([]byte("test data"))
 			})
 
 			middleware := GzipMiddleware(handler)
@@ -645,7 +645,7 @@ func TestGzipMiddleware_StatusCodeCompression(t *testing.T) {
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tc.statusCode)
-				w.Write([]byte("test data"))
+				_, _ = w.Write([]byte("test data"))
 			})
 
 			middleware := GzipMiddleware(handler)

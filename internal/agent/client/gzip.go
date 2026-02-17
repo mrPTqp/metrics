@@ -22,15 +22,14 @@ func Compress(data []byte) ([]byte, error) {
 
 	_, err := gz.Write(data)
 	if err != nil {
-		gz.Close()
+		err = gz.Close()
+		if err != nil {
+			gzipWriterPool.Put(gz)
+			return nil, fmt.Errorf("failed to close gzip writer: %v", err)
+		}
+
 		gzipWriterPool.Put(gz)
 		return nil, fmt.Errorf("failed write data to gzip: %v", err)
-	}
-
-	err = gz.Close()
-	if err != nil {
-		gzipWriterPool.Put(gz)
-		return nil, fmt.Errorf("failed to close gzip writer: %v", err)
 	}
 
 	compressed := b.Bytes()
@@ -44,7 +43,7 @@ func Decompress(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gzip reader: %v", err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	var b bytes.Buffer
 	_, err = b.ReadFrom(r)

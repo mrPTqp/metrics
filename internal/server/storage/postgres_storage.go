@@ -136,14 +136,14 @@ func (ps *PostgresStorage) ListGauges(ctx context.Context) (map[string]float64, 
 		log.Error("failed to query gauges", zap.Error(err))
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	result := make(map[string]float64)
 	for rows.Next() {
 		var name string
 		var value sql.NullFloat64
-		if err := rows.Scan(&name, &value); err != nil {
-			log.Error("failed to scan gauge row", zap.Error(err))
+		if err2 := rows.Scan(&name, &value); err2 != nil {
+			log.Error("failed to scan gauge row", zap.Error(err2))
 			continue
 		}
 		if value.Valid {
@@ -163,14 +163,14 @@ func (ps *PostgresStorage) ListCounters(ctx context.Context) (map[string]int64, 
 		log.Error("failed to query counters", zap.Error(err))
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	result := make(map[string]int64)
 	for rows.Next() {
 		var name string
 		var value sql.NullInt64
-		if err := rows.Scan(&name, &value); err != nil {
-			log.Error("failed to scan counter row", zap.Error(err))
+		if err2 := rows.Scan(&name, &value); err2 != nil {
+			log.Error("failed to scan counter row", zap.Error(err2))
 			continue
 		}
 		if value.Valid {

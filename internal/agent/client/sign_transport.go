@@ -31,9 +31,9 @@ func (st *SigningTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 
 	if len(bodyBytes) > 0 {
-		signature, err := signer.Sign(bodyBytes, &st.SecretKey)
-		if err != nil {
-			return nil, err
+		signature, err2 := signer.Sign(bodyBytes, &st.SecretKey)
+		if err2 != nil {
+			return nil, err2
 		}
 		req.Header.Set("HashSHA256", *signature)
 	}

@@ -14,7 +14,7 @@ import (
 
 func ExampleMetricHandler_SaveMetricHandlerJSON() {
 	logger := zap.NewNop()
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }()
 
 	mockSvc := &mockMetricsService{
 		saveGaugeFunc: func(ctx context.Context, name string, value *float64) error {
@@ -39,7 +39,7 @@ func ExampleMetricHandler_SaveMetricHandlerJSON() {
 
 func ExampleMetricHandler_SaveMetricsHandlerJSON() {
 	logger := zap.NewNop()
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }()
 
 	mockSvc := &mockMetricsService{
 		saveAllMetricsFunc: func(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
@@ -65,7 +65,7 @@ func ExampleMetricHandler_SaveMetricsHandlerJSON() {
 
 func ExampleMetricHandler_ValueMetricHandlerJSON() {
 	logger := zap.NewNop()
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }()
 
 	mockSvc := &mockMetricsService{
 		getGaugeFunc: func(ctx context.Context, name string) (float64, error) {
@@ -94,7 +94,7 @@ func ExampleMetricHandler_SaveMetricHandler() {
 	// Создаём router, чтобы chi.URLParam работал
 	r := chi.NewRouter()
 	logger := zap.NewNop()
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }()
 
 	mockSvc := &mockMetricsService{
 		saveGaugeFunc: func(ctx context.Context, name string, value *float64) error {
@@ -120,7 +120,7 @@ func ExampleMetricHandler_SaveMetricHandler() {
 func ExampleMetricHandler_GetMetricHandler() {
 	r := chi.NewRouter()
 	logger := zap.NewNop()
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }()
 
 	mockSvc := &mockMetricsService{
 		getGaugeFunc: func(ctx context.Context, name string) (float64, error) {
