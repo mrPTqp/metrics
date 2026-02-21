@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -13,7 +16,25 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	buildVersion, buildDate, buildCommit string
+)
+
+func printBuildInfo(w io.Writer) {
+	v := func(val string) string {
+		if val != "" {
+			return val
+		}
+		return "N/A"
+	}
+	fmt.Fprintf(w, "Build version: %s\n", v(buildVersion))
+	fmt.Fprintf(w, "Build date: %s\n", v(buildDate))
+	fmt.Fprintf(w, "Build commit: %s\n", v(buildCommit))
+}
+
 func main() {
+	printBuildInfo(os.Stdout)
+	
 	log := logger.NewLogger()
 	defer func() {
 		_ = log.Sync()
