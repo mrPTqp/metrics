@@ -148,7 +148,10 @@ func TestMetricsAgent_SendMetrics(t *testing.T) {
 					assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 					assert.Equal(t, "gzip", r.Header.Get("Content-Encoding"))
 
-					body, _ := io.ReadAll(r.Body)
+					body, err := io.ReadAll(r.Body)
+					assert.NoError(t, err)
+					assert.Greater(t, len(body), 0, "Expected non-empty request body")
+
 					decBody, err := Decompress(body)
 					assert.NoError(t, err)
 

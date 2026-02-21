@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"io"
 	"sync"
 )
 
@@ -18,24 +19,23 @@ func Compress(data []byte) ([]byte, error) {
 	var b bytes.Buffer
 
 	gz := gzipWriterPool.Get().(*gzip.Writer)
+	defer func() {
+		gz.Reset(io.Discard)
+		gzipWriterPool.Put(gz)
+	}()
+
 	gz.Reset(&b)
 
 	_, err := gz.Write(data)
 	if err != nil {
-		err = gz.Close()
-		if err != nil {
-			gzipWriterPool.Put(gz)
-			return nil, fmt.Errorf("failed to close gzip writer: %v", err)
-		}
-
-		gzipWriterPool.Put(gz)
-		return nil, fmt.Errorf("failed write data to gzip: %v", err)
+		return nil, fmt.Errorf("failed to write data to gzip: %v", err)
 	}
 
-	compressed := b.Bytes()
-	gzipWriterPool.Put(gz)
+	if err := gz.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close gzip writer: %v", err)
+	}
 
-	return compressed, nil
+	return b.Bytes(), nil
 }
 
 func Decompress(data []byte) ([]byte, error) {

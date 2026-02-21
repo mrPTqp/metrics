@@ -128,8 +128,10 @@ func (ma *MetricsAgent) SendMetrics() {
 		3,
 		1*time.Second,
 	)
-	defer func() { _ = resp.Body.Close() }()
-	
+	if resp != nil && resp.Body != nil {
+		defer func() { _ = resp.Body.Close() }()
+	}
+
 	if err != nil {
 		ma.logger.Error("failed to send metrics after retries", zap.Error(err))
 		return
