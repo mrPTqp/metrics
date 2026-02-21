@@ -1,60 +1,56 @@
 package handler
 
+import (
+	"context"
+
+	"github.com/mrPTqp/metrics/internal/server/service"
+)
+
 type mockMetricsService struct {
-	saveGaugeFunc      func(name string, value *float64) error
-	saveCounterFunc    func(name string, value *int64) error
-	getGaugeFunc       func(name string) (float64, error)
-	getCounterFunc     func(name string) (int64, error)
-	listAllFunc        func() (map[string]float64, map[string]int64)
-	saveAllMetricsFunc func(gauges map[string]float64, counters map[string]int64) error
-	pingFunc           func() bool
+	saveGaugeFunc      func(ctx context.Context, name string, value *float64) error
+	saveCounterFunc    func(ctx context.Context, name string, delta *int64) error
+	getGaugeFunc       func(ctx context.Context, name string) (float64, error)
+	getCounterFunc     func(ctx context.Context, name string) (int64, error)
+	listAllFunc        func(ctx context.Context) (map[string]float64, map[string]int64)
+	pingFunc           func(ctx context.Context) bool
+	saveAllMetricsFunc func(ctx context.Context, gauges map[string]float64, counters map[string]int64) error
 }
 
-func (m *mockMetricsService) SaveGaugeMetric(name string, value *float64) error {
-	if m.saveGaugeFunc != nil {
-		return m.saveGaugeFunc(name, value)
-	}
-	return nil
+var _ service.MetricsService = (*mockMetricsService)(nil)
+
+func (m *mockMetricsService) SaveGaugeMetric(ctx context.Context, name string, value *float64) error {
+	return m.saveGaugeFunc(ctx, name, value)
 }
 
-func (m *mockMetricsService) SaveCounterMetric(name string, value *int64) error {
-	if m.saveCounterFunc != nil {
-		return m.saveCounterFunc(name, value)
-	}
-	return nil
+func (m *mockMetricsService) SaveCounterMetric(ctx context.Context, name string, delta *int64) error {
+	return m.saveCounterFunc(ctx, name, delta)
 }
 
-func (m *mockMetricsService) GetGaugeMetric(name string) (float64, error) {
-	if m.getGaugeFunc != nil {
-		return m.getGaugeFunc(name)
-	}
-	return 0, nil
+func (m *mockMetricsService) GetGaugeMetric(ctx context.Context, name string) (float64, error) {
+	return m.getGaugeFunc(ctx, name)
 }
 
-func (m *mockMetricsService) GetCounterMetric(name string) (int64, error) {
-	if m.getCounterFunc != nil {
-		return m.getCounterFunc(name)
-	}
-	return 0, nil
+func (m *mockMetricsService) GetCounterMetric(ctx context.Context, name string) (int64, error) {
+	return m.getCounterFunc(ctx, name)
 }
 
-func (m *mockMetricsService) ListAllMetrics() (map[string]float64, map[string]int64) {
+func (m *mockMetricsService) ListAllMetrics(ctx context.Context) (map[string]float64, map[string]int64) {
 	if m.listAllFunc != nil {
-		return m.listAllFunc()
+		return m.listAllFunc(ctx)
 	}
 	return map[string]float64{}, map[string]int64{}
 }
 
-func (m *mockMetricsService) SaveAllMetrics(gauges map[string]float64, counters map[string]int64) error {
-	if m.saveAllMetricsFunc != nil {
-		return m.saveAllMetricsFunc(gauges, counters)
-	}
-	return nil
-}
-
-func (m *mockMetricsService) Ping() bool {
+func (m *mockMetricsService) Ping(ctx context.Context) bool {
 	if m.pingFunc != nil {
-		return m.pingFunc()
+		return m.pingFunc(ctx)
 	}
 	return true
+}
+
+func (m *mockMetricsService) SaveAllMetrics(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
+	if m.saveAllMetricsFunc != nil {
+		return m.saveAllMetricsFunc(ctx, gauges, counters)
+	}
+	return nil
 }

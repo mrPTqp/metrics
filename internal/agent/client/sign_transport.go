@@ -10,12 +10,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// Transport для подписи запросов и проверки подписи ответов
 type SigningTransport struct {
 	RoundTripper http.RoundTripper
 	SecretKey    string
-	Logger       *zap.SugaredLogger
+	Logger       *zap.Logger
 }
 
+// Подписываем запрос и проверяем подпись ответа
 func (st *SigningTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	var bodyBytes []byte
 	var err error
@@ -47,14 +49,14 @@ func (st *SigningTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 	bodyBytes, err = io.ReadAll(resp.Body)
 	if err != nil {
-		st.Logger.Warnw("failed to read response body", "error", err)
+		st.Logger.Warn("failed to read response body", zap.Error(err))
 		return resp, nil
 	}
 	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Восстанавливаем тело
 
 	if !signer.Verify(bodyBytes, &signature, &st.SecretKey, st.Logger) {
-        return nil, fmt.Errorf("response signature verification failed")
-    }
+		return nil, fmt.Errorf("response signature verification failed")
+	}
 
 	return resp, err
 }

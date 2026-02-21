@@ -11,8 +11,11 @@ type Flags struct {
 	Restore         *bool
 	DatabaseDsn     *string
 	SecretKey       *string
+	AuditFilePath   *string
+	AuditURL        *string
 }
 
+// Парсинг флагов
 func ParseFlags() *Flags {
 	var addr string
 	var storeInterval int
@@ -20,6 +23,8 @@ func ParseFlags() *Flags {
 	var restore bool
 	var databaseDsn string
 	var secretKey string
+	var auditFilePath string
+	var auditURL string
 
 	flag.StringVar(&addr, "a", "", "address and port to run server")
 	flag.IntVar(&storeInterval, "i", 0, "store interval")
@@ -27,6 +32,8 @@ func ParseFlags() *Flags {
 	flag.BoolVar(&restore, "r", false, "restore")
 	flag.StringVar(&databaseDsn, "d", "", "databse connect string")
 	flag.StringVar(&secretKey, "k", "", "sign secret key")
+	flag.StringVar(&auditFilePath, "audit-file", "", "audit file path")
+	flag.StringVar(&auditURL, "audit-url", "", "audit url")
 
 	flag.Parse()
 
@@ -37,5 +44,7 @@ func ParseFlags() *Flags {
 		Restore:         &restore,
 		DatabaseDsn:     &databaseDsn,
 		SecretKey:       &secretKey,
+		AuditFilePath:   &auditFilePath,
+		AuditURL:        &auditURL,
 	}
 }

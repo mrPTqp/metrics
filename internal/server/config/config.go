@@ -11,74 +11,69 @@ type Config struct {
 	Address          models.NetAddress
 	StoreInterval    int
 	Restore          bool
-	File             string
+	BackupFilePath   string
 	SyncBackupToFile bool
 	DatabaseDsn      *string
 	SecretKey        *string
+	AuditFilePath    string
+	FileAuditEnabled bool
+	AuditURL         *string
+	HTTPAuditEnabled bool
 }
 
+// Загрузка конфигурации
 func LoadConfig() *Config {
 	envs := ParseEnvs()
 	flags := ParseFlags()
 
 	na := models.NetAddress{}
-	address := "localhost:8080"
-	if envs.Address != nil && *envs.Address != "" {
-		address = *envs.Address
-	} else if flags.Address != nil && *flags.Address != "" {
-		address = *flags.Address
-	}
+	address := pickValue(envs.Address, flags.Address, "localhost:8080")
 	if err := na.SetAddress(address); err != nil {
 		panic("invalid address: " + address + " error: " + err.Error())
 	}
 
-	storeInterval := 300
-	if envs.StoreInterval != nil && *envs.StoreInterval != 0 {
-		storeInterval = *envs.StoreInterval
-	} else if flags.StoreInterval != nil {
-		storeInterval = *flags.StoreInterval
-	}
-
+	storeInterval := pickValue(envs.StoreInterval, flags.StoreInterval, 300)
 	var syncBackupToFile = false
 	if storeInterval == 0 {
 		syncBackupToFile = true
 	}
 
-	fileStoragePath := os.TempDir() + "/"
-	if envs.FileStoragePath != nil && *envs.FileStoragePath != "" {
-		fileStoragePath = *envs.FileStoragePath
-	} else if flags.FileStoragePath != nil && *flags.FileStoragePath != "" {
-		fileStoragePath = *flags.FileStoragePath
+	fileStoragePath := pickValue(envs.FileStoragePath, flags.FileStoragePath, os.TempDir()+"/")
+	fileStoragePath = filepath.FromSlash(fileStoragePath + "backup.log")
+	restore := pickValue(envs.Restore, flags.Restore, false)
+	databaseDsn := pickValue(envs.DatabaseDsn, flags.DatabaseDsn, "")
+	secretKey := pickValue(envs.SecretKey, flags.SecretKey, "")
+
+	var fileAuditEnabled bool
+	auditFilePath := pickValue(envs.AuditFilePath, flags.AuditFilePath, "")
+	if auditFilePath != "" {
+		fileAuditEnabled = true
+		auditFilePath = filepath.FromSlash(auditFilePath + "audit.log")
 	}
 
-	var restore = false
-	if envs.Restore != nil && *envs.Restore {
-		restore = *envs.Restore
-	} else if flags.Restore != nil && *flags.Restore {
-		restore = *flags.Restore
-	}
-
-	var databaseDsn string
-	if envs.DatabaseDsn != nil && *envs.DatabaseDsn != "" {
-		databaseDsn = *envs.DatabaseDsn
-	} else if flags.DatabaseDsn != nil && *flags.DatabaseDsn != "" {
-		databaseDsn = *flags.DatabaseDsn
-	}
-
-	var secretKey string
-	if envs.SecretKey != nil && *envs.SecretKey != "" {
-		secretKey = *envs.SecretKey
-	} else if flags.SecretKey != nil && *flags.SecretKey != "" {
-		secretKey = *flags.SecretKey
-	}
+	auditURL := pickValue(envs.AuditURL, flags.AuditURL, "")
 
 	return &Config{
 		Address:          na,
 		StoreInterval:    storeInterval,
 		Restore:          restore,
-		File:             filepath.FromSlash(fileStoragePath + "events.log"),
+		BackupFilePath:   fileStoragePath,
 		SyncBackupToFile: syncBackupToFile,
 		DatabaseDsn:      &databaseDsn,
 		SecretKey:        &secretKey,
+		AuditFilePath:    auditFilePath,
+		FileAuditEnabled: fileAuditEnabled,
+		AuditURL:         &auditURL,
+		HTTPAuditEnabled: auditURL != "",
 	}
+}
+
+func pickValue[T comparable](env, flag *T, def T) T {
+	if env != nil {
+		return *env
+	}
+	if flag != nil {
+		return *flag
+	}
+	return def
 }

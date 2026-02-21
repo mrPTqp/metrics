@@ -12,7 +12,7 @@ import (
 )
 
 func TestCompressWriter_Header(t *testing.T) {
-	logger := zap.NewNop().Sugar()
+	logger := zap.NewNop()
 	w := httptest.NewRecorder()
 	cw := newCompressWriter(w, true, logger)
 
@@ -105,7 +105,7 @@ func TestCompressWriter_Write(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			logger := zap.NewNop().Sugar()
+			logger := zap.NewNop()
 			cw := newCompressWriter(w, tt.supportsGzip, logger)
 
 			w.Header().Set("Content-Type", tt.contentType)
@@ -195,7 +195,7 @@ func TestCompressWriter_WriteHeader(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			logger := zap.NewNop().Sugar()
+			logger := zap.NewNop()
 			cw := newCompressWriter(w, tt.supportsGzip, logger)
 
 			w.Header().Set("Content-Type", tt.contentType)
@@ -225,7 +225,7 @@ func TestCompressWriter_WriteHeader(t *testing.T) {
 
 func TestCompressWriter_WriteHeader_Idempotent(t *testing.T) {
 	w := httptest.NewRecorder()
-	logger := zap.NewNop().Sugar()
+	logger := zap.NewNop()
 	cw := newCompressWriter(w, true, logger)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -239,7 +239,7 @@ func TestCompressWriter_WriteHeader_Idempotent(t *testing.T) {
 
 func TestCompressWriter_Write_CallsWriteHeader(t *testing.T) {
 	w := httptest.NewRecorder()
-	logger := zap.NewNop().Sugar()
+	logger := zap.NewNop()
 	cw := newCompressWriter(w, true, logger)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -284,7 +284,7 @@ func TestCompressWriter_Close(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			logger := zap.NewNop().Sugar()
+			logger := zap.NewNop()
 			cw := newCompressWriter(w, true, logger)
 			cw.shouldCompress = tt.shouldCompress
 			cw.headerWritten = tt.headerWritten
@@ -365,7 +365,6 @@ func TestCompressReader_InvalidGzipData(t *testing.T) {
 }
 
 func TestGzipMiddleware_CompressResponse(t *testing.T) {
-	logger := zap.NewNop().Sugar()
 	testData := []byte(`{"message": "test"}`)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -373,7 +372,7 @@ func TestGzipMiddleware_CompressResponse(t *testing.T) {
 		w.Write(testData)
 	})
 
-	middleware := GzipMiddleware(handler, logger)
+	middleware := GzipMiddleware(handler)
 
 	tests := []struct {
 		name           string
@@ -445,7 +444,6 @@ func TestGzipMiddleware_CompressResponse(t *testing.T) {
 }
 
 func TestGzipMiddleware_DecompressRequest(t *testing.T) {
-	logger := zap.NewNop().Sugar()
 	originalData := []byte(`{"message": "test"}`)
 
 	var buf bytes.Buffer
@@ -467,12 +465,12 @@ func TestGzipMiddleware_DecompressRequest(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	middleware := GzipMiddleware(handler, logger)
+	middleware := GzipMiddleware(handler)
 
 	tests := []struct {
-		name            string
-		contentEncoding string
-		body            []byte
+		name             string
+		contentEncoding  string
+		body             []byte
 		shouldDecompress bool
 	}{
 		{
@@ -483,7 +481,7 @@ func TestGzipMiddleware_DecompressRequest(t *testing.T) {
 		},
 		{
 			name:             "does not decompress without Content-Encoding",
-			contentEncoding:   "",
+			contentEncoding:  "",
 			body:             originalData,
 			shouldDecompress: false,
 		},
@@ -513,13 +511,11 @@ func TestGzipMiddleware_DecompressRequest(t *testing.T) {
 }
 
 func TestGzipMiddleware_InvalidGzipBody(t *testing.T) {
-	logger := zap.NewNop().Sugar()
-
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("handler should not be called with invalid gzip data")
 	})
 
-	middleware := GzipMiddleware(handler, logger)
+	middleware := GzipMiddleware(handler)
 
 	req := httptest.NewRequest("POST", "/test", bytes.NewReader([]byte("invalid gzip data")))
 	req.Header.Set("Content-Encoding", "gzip")
@@ -533,7 +529,6 @@ func TestGzipMiddleware_InvalidGzipBody(t *testing.T) {
 }
 
 func TestGzipMiddleware_CompressAndDecompress(t *testing.T) {
-	logger := zap.NewNop().Sugar()
 	originalRequestData := []byte(`{"request": "data"}`)
 	originalResponseData := []byte(`{"response": "data"}`)
 
@@ -556,7 +551,7 @@ func TestGzipMiddleware_CompressAndDecompress(t *testing.T) {
 		w.Write(originalResponseData)
 	})
 
-	middleware := GzipMiddleware(handler, logger)
+	middleware := GzipMiddleware(handler)
 
 	req := httptest.NewRequest("POST", "/test", bytes.NewReader(reqBuf.Bytes()))
 	req.Header.Set("Content-Encoding", "gzip")
@@ -587,8 +582,6 @@ func TestGzipMiddleware_CompressAndDecompress(t *testing.T) {
 }
 
 func TestGzipMiddleware_ContentTypeCompression(t *testing.T) {
-	logger := zap.NewNop().Sugar()
-
 	testCases := []struct {
 		name           string
 		contentType    string
@@ -611,7 +604,7 @@ func TestGzipMiddleware_ContentTypeCompression(t *testing.T) {
 				w.Write([]byte("test data"))
 			})
 
-			middleware := GzipMiddleware(handler, logger)
+			middleware := GzipMiddleware(handler)
 
 			req := httptest.NewRequest("GET", "/test", nil)
 			req.Header.Set("Accept-Encoding", "gzip")
@@ -634,8 +627,6 @@ func TestGzipMiddleware_ContentTypeCompression(t *testing.T) {
 }
 
 func TestGzipMiddleware_StatusCodeCompression(t *testing.T) {
-	logger := zap.NewNop().Sugar()
-
 	testCases := []struct {
 		name           string
 		statusCode     int
@@ -657,7 +648,7 @@ func TestGzipMiddleware_StatusCodeCompression(t *testing.T) {
 				w.Write([]byte("test data"))
 			})
 
-			middleware := GzipMiddleware(handler, logger)
+			middleware := GzipMiddleware(handler)
 
 			req := httptest.NewRequest("GET", "/test", nil)
 			req.Header.Set("Accept-Encoding", "gzip")
@@ -682,4 +673,3 @@ func TestGzipMiddleware_StatusCodeCompression(t *testing.T) {
 		})
 	}
 }
-

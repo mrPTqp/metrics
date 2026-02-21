@@ -14,15 +14,17 @@ import (
 	"go.uber.org/zap"
 )
 
+// Агент-коллектор метрик
 type MetricsAgent struct {
 	c          *http.Client
 	ec         *HTTPErrorClassifier
 	cfg        *config.Config
 	repository repository.MetricRepository
-	logger     *zap.SugaredLogger
+	logger     *zap.Logger
 }
 
-func NewMetricsAgent(client *http.Client, cfg *config.Config, repository repository.MetricRepository, logger *zap.SugaredLogger) *MetricsAgent {
+// Возвращает новый экземпляр MetricsAgent
+func NewMetricsAgent(client *http.Client, cfg *config.Config, repository repository.MetricRepository, logger *zap.Logger) *MetricsAgent {
 	return &MetricsAgent{
 		c:          client,
 		ec:         NewHTTPErrorClassifier(),
@@ -32,6 +34,7 @@ func NewMetricsAgent(client *http.Client, cfg *config.Config, repository reposit
 	}
 }
 
+// Собирает основные метрики
 func (ma *MetricsAgent) PollMetrics() {
 	_, counters := ma.repository.GetAllMetrics()
 	newCounters := make(map[string]int64)
@@ -40,11 +43,13 @@ func (ma *MetricsAgent) PollMetrics() {
 	ma.repository.SaveAllMetrics(newGauges, newCounters)
 }
 
+// Собирает дополнительные метрики
 func (ma *MetricsAgent) PollAdditionalGaugeMetrics() {
 	newAdditionalGauges := CollectAdditionalGaugeMetrics()
 	ma.repository.SaveAdditionalGaugeMetrics(newAdditionalGauges)
 }
 
+// Отправляет собранные метрики на сервер
 func (ma *MetricsAgent) SendMetrics() {
 	address := ma.cfg.Address
 
@@ -87,18 +92,20 @@ func (ma *MetricsAgent) SendMetrics() {
 
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
-		ma.logger.Errorf("failed to marshal metrics: %v", err)
+		ma.logger.Error("failed to marshal metrics", zap.Error(err))
 		return
 	}
 
 	compressedBody, err := Compress(jsonBody)
 	if err != nil {
+		ma.logger.Error("failed to compress metrics", zap.Error(err))
 		return
 	}
 
-	url := "http://" + address.String() + "/updates"
-	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(compressedBody))
+	URL := "http://" + address.String() + "/updates"
+	httpReq, err := http.NewRequest("POST", URL, bytes.NewReader(compressedBody))
 	if err != nil {
+		ma.logger.Error("failed to create HTTP request", zap.Error(err))
 		return
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -123,13 +130,16 @@ func (ma *MetricsAgent) SendMetrics() {
 		1*time.Second,
 	)
 	if err != nil {
+		ma.logger.Error("failed to send metrics after retries", zap.Error(err))
 		return
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		ma.logger.Errorf("HTTP request failed with status: %d", resp.StatusCode)
+		ma.logger.Error("HTTP request failed",
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("url", URL))
 		return
 	}
 
-	ma.logger.Info("Metrics successfully sent to server")
+	ma.logger.Info("metrics successfully sent to server")
 }

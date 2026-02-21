@@ -5,6 +5,7 @@ const (
 	Gauge   = "gauge"
 )
 
+// Сущность для описания метрик, обрабатываемых сервисом
 type Metrics struct {
 	ID    string   `json:"id"`
 	MType string   `json:"type"`

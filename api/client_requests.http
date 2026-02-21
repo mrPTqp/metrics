@@ -1,22 +1,120 @@
-GET http://localhost:8080/ HTTP/1.1
+# @c:/Programming/golang/metrics/api/client_requests.http
 
-GET http://localhost:8080/ping HTTP/1.1
+# GET root - возвращает HTML-страницу со всеми метриками
+GET http://localhost:8080/
+Accept: text/html
 
+###
+
+# GET /ping - проверка подключения к БД (если настроена)
+GET http://localhost:8080/ping
+
+###
+
+# POST /update - сохранение метрики в формате JSON (gauge)
 POST http://localhost:8080/update HTTP/1.1
 Host: localhost:8080
 Content-Type: application/json
 
 {
-  "id": "Alloc",
+  "id": "cpu_temp",
   "type": "gauge",
-  "value": 1744184459
+  "value": 45.3
 }
 
+###
+
+# POST /update - сохранение метрики в формате JSON (counter)
+POST http://localhost:8080/update HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+
+{
+  "id": "requests",
+  "type": "counter",
+  "delta": 100
+}
+
+###
+
+# POST /updates - массовое сохранение метрик в формате JSON
+POST http://localhost:8080/updates HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+
+[
+  {
+    "id": "cpu_usage",
+    "type": "gauge",
+    "value": 0.8
+  },
+  {
+    "id": "requests",
+    "type": "counter",
+    "delta": 150
+  }
+]
+
+###
+
+# POST /value - получение значения метрики в формате JSON (gauge)
 POST http://localhost:8080/value HTTP/1.1
 Host: localhost:8080
 Content-Type: application/json
 
 {
-  "id": "lastgc",
+  "id": "cpu_usage",
   "type": "gauge"
-} 
+}
+
+###
+
+# POST /value - получение значения метрики в формате JSON (counter)
+POST http://localhost:8080/value HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+
+{
+  "id": "requests",
+  "type": "counter"
+}
+
+###
+
+# GET /value/gauge/{name} - получение gauge метрики по имени
+GET http://localhost:8080/value/gauge/cpu_usage HTTP/1.1
+Host: localhost:8080
+
+###
+
+# GET /value/counter/{name} - получение counter метрики по имени
+GET http://localhost:8080/value/counter/requests HTTP/1.1
+Host: localhost:8080
+
+###
+
+# POST /update/gauge/{name}/{value} - сохранение gauge метрики через URL
+POST http://localhost:8080/update/gauge/memory_usage/256.5 HTTP/1.1
+Host: localhost:8080
+
+###
+
+# POST /update/counter/{name}/{value} - сохранение counter метрики через URL
+POST http://localhost:8080/update/counter/packets_sent/1000 HTTP/1.1
+Host: localhost:8080
+
+###
+
+# GET /debug/pprof/ - доступ к профилировщику (Go pprof)
+GET http://localhost:8080/debug/pprof/
+
+###
+
+# GET /debug/pprof/goroutine?debug=1 - дамп горутин
+GET http://localhost:8080/debug/pprof/goroutine?debug=1
+
+###
+
+# GET /metrics — альтернативный путь (если роутер настроен так, что / == /metrics)
+GET http://localhost:8080/metrics HTTP/1.1
+Accept: text/html

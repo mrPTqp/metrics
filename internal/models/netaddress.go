@@ -6,11 +6,13 @@ import (
 	"strings"
 )
 
+// Сущность для описания сетевого адреса
 type NetAddress struct {
 	Host string
 	Port int
 }
 
+// Устанавливает сетевой адрес
 func (na *NetAddress) SetAddress(address string) error {
 	parts := strings.Split(address, ":")
 	if len(parts) != 2 {

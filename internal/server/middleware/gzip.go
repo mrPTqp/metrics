@@ -5,23 +5,34 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
 )
+
+var gzipWriterPool = sync.Pool{
+	New: func() interface{} {
+		w, _ := gzip.NewWriterLevel(nil, gzip.DefaultCompression)
+		return w
+	},
+}
 
 type compressWriter struct {
 	w              http.ResponseWriter
 	zw             *gzip.Writer
 	supportsGzip   bool
-	logger         *zap.SugaredLogger
+	logger         *zap.Logger
 	shouldCompress bool
 	headerWritten  bool
 }
 
-func newCompressWriter(w http.ResponseWriter, supportsGzip bool, logger *zap.SugaredLogger) *compressWriter {
+func newCompressWriter(w http.ResponseWriter, supportsGzip bool, logger *zap.Logger) *compressWriter {
+	zw := gzipWriterPool.Get().(*gzip.Writer)
+	zw.Reset(w)
+
 	return &compressWriter{
 		w:              w,
-		zw:             gzip.NewWriter(w),
+		zw:             zw,
 		supportsGzip:   supportsGzip,
 		logger:         logger,
 		shouldCompress: false,
@@ -69,6 +80,8 @@ func (c *compressWriter) Close() error {
 		if err := c.zw.Close(); err != nil {
 			return err
 		}
+		c.zw.Reset(io.Discard)
+		gzipWriterPool.Put(c.zw)
 	}
 	return nil
 }

@@ -48,16 +48,16 @@ func (m *MockRepository) GetAdditionalGaugeMetrics() map[string]float64 {
 }
 
 func TestMetricsAgent_PollMetrics(t *testing.T) {
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	cfg := &config.Config{ReportInterval: 10, PollInterval: 2}
 
 	tests := []struct {
-		name           string
+		name            string
 		initialCounters map[string]int64
-		expectCall     func(*MockRepository)
+		expectCall      func(*MockRepository)
 	}{
 		{
-			name:           "Increments_PollCount",
+			name:            "Increments_PollCount",
 			initialCounters: map[string]int64{"PollCount": 5},
 			expectCall: func(mr *MockRepository) {
 				mr.On("GetAllMetrics").Return(
@@ -70,7 +70,7 @@ func TestMetricsAgent_PollMetrics(t *testing.T) {
 			},
 		},
 		{
-			name:           "Empty_Counters_Initiates_PollCount",
+			name:            "Empty_Counters_Initiates_PollCount",
 			initialCounters: map[string]int64{},
 			expectCall: func(mr *MockRepository) {
 				mr.On("GetAllMetrics").Return(
@@ -98,7 +98,7 @@ func TestMetricsAgent_PollMetrics(t *testing.T) {
 }
 
 func TestMetricsAgent_SendMetrics(t *testing.T) {
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	cfg := &config.Config{
 		Address: models.NetAddress{Host: "localhost", Port: 8080},
 	}

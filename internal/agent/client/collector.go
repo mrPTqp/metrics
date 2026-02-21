@@ -8,6 +8,7 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
+// Собирает основные метрики
 func CollectGaugeMetrics() map[string]float64 {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
@@ -43,6 +44,7 @@ func CollectGaugeMetrics() map[string]float64 {
 	return metrics
 }
 
+// Собирает дополнительные метрики
 func CollectAdditionalGaugeMetrics() map[string]float64 {
 	metrics := make(map[string]float64)
 

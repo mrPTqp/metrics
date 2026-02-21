@@ -1,5 +1,3 @@
-// internal/retry/retrier.go
-
 package retry
 
 import (
@@ -20,6 +18,7 @@ const (
 	Retriable
 )
 
+// Выполняет операцию с повторением при ошибках
 func DoWithRetry(
 	ctx context.Context,
 	classifier ErrorClassifier,

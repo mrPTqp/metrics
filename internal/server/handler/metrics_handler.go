@@ -5,12 +5,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// Обработчик HTTP запросов
 type MetricHandler struct {
 	service service.MetricsService
-	logger  *zap.SugaredLogger
+	logger  *zap.Logger
 }
 
-func NewMetricHandler(service service.MetricsService, logger *zap.SugaredLogger) *MetricHandler {
+// Возвращает новый экземпляр MetricHandler
+func NewMetricHandler(service service.MetricsService, logger *zap.Logger) *MetricHandler {
 	return &MetricHandler{
 		service: service,
 		logger:  logger,

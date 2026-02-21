@@ -8,18 +8,22 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mrPTqp/metrics/internal/agent/client"
+	agent "github.com/mrPTqp/metrics/internal/agent/client"
 	"github.com/mrPTqp/metrics/internal/agent/config"
 	"github.com/mrPTqp/metrics/internal/agent/scheduler"
 	"github.com/mrPTqp/metrics/internal/agent/storage"
 	"github.com/mrPTqp/metrics/internal/logger"
+	"go.uber.org/zap"
 )
 
 func main() {
-	sugar := logger.NewSugarLogger()
+	log := logger.NewLogger()
+	defer func() {
+		_ = log.Sync()
+	}()
 
-	config := config.LoadConfig()
-	sugar.Infow("configuration created", "config", config)
+	cfg := config.LoadConfig()
+	log.Info("configuration created", zap.Any("config", cfg))
 
 	client := &http.Client{
 		Timeout: time.Second * 30,
@@ -28,7 +32,7 @@ func main() {
 		},
 	}
 
-	if config.SecretKey != nil && *config.SecretKey != "" {
+	if cfg.SecretKey != nil && *cfg.SecretKey != "" {
 		originalTransport := client.Transport
 		if originalTransport == nil {
 			originalTransport = http.DefaultTransport
@@ -36,26 +40,26 @@ func main() {
 
 		client.Transport = &agent.SigningTransport{
 			RoundTripper: originalTransport,
-			SecretKey:    *config.SecretKey,
-			Logger:       sugar,
+			SecretKey:    *cfg.SecretKey,
+			Logger:       log,
 		}
 	}
 
 	mr := storage.NewMemStorage()
-	a := agent.NewMetricsAgent(client, config, mr, sugar)
-	sc := scheduler.NewScheduler(a, sugar)
+	a := agent.NewMetricsAgent(client, cfg, mr, log)
+	sc := scheduler.NewScheduler(a, log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	sendWorkersSize := config.RateLimit
+	sendWorkersSize := cfg.RateLimit
 	taskChannelSize := sendWorkersSize * 3
 	go func() {
-		sc.Start(ctx, config.PollInterval, config.ReportInterval, sendWorkersSize, taskChannelSize)
+		sc.Start(ctx, cfg.PollInterval, cfg.ReportInterval, sendWorkersSize, taskChannelSize)
 	}()
 
 	<-ctx.Done()
-	sugar.Info("Shutdown signal received")
-	sugar.Info("Waiting for scheduler to finish...")
-	sugar.Info("Agent stopped gracefully")
+	log.Info("shutdown signal received")
+	log.Info("waiting for scheduler to finish...")
+	log.Info("agent stopped gracefully")
 }

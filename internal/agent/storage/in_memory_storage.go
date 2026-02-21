@@ -5,6 +5,7 @@ import (
 	"sync"
 )
 
+// In memory хранилище метрик
 type MemStorage struct {
 	gauges           map[string]float64
 	counters         map[string]int64
@@ -12,6 +13,7 @@ type MemStorage struct {
 	mu               sync.RWMutex
 }
 
+// Возвращает новый экземпляр MemStorage
 func NewMemStorage() *MemStorage {
 	return &MemStorage{
 		gauges:           make(map[string]float64),
@@ -20,6 +22,7 @@ func NewMemStorage() *MemStorage {
 	}
 }
 
+// Сохраняет основные метрики в хранилище
 func (s *MemStorage) SaveAllMetrics(gauges map[string]float64, counters map[string]int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -37,6 +40,7 @@ func (s *MemStorage) SaveAllMetrics(gauges map[string]float64, counters map[stri
 	}
 }
 
+// Возвращает основные метрики из хранилища
 func (s *MemStorage) GetAllMetrics() (map[string]float64, map[string]int64) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -44,6 +48,7 @@ func (s *MemStorage) GetAllMetrics() (map[string]float64, map[string]int64) {
 	return maps.Clone(s.gauges), maps.Clone(s.counters)
 }
 
+// Сохраняет дополнительные метрики в хранилище
 func (s *MemStorage) SaveAdditionalGaugeMetrics(additionalGauges map[string]float64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -55,6 +60,7 @@ func (s *MemStorage) SaveAdditionalGaugeMetrics(additionalGauges map[string]floa
 	}
 }
 
+// Возвращает дополнительные метрики из хранилища
 func (s *MemStorage) GetAdditionalGaugeMetrics() map[string]float64 {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
