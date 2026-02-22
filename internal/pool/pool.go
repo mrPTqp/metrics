@@ -1,31 +1,32 @@
 package pool
 
+import "sync"
+
 type Resetter interface {
 	Reset()
 }
 
 type Pool[T Resetter] struct {
-	items []T
+	sp sync.Pool
 }
 
 func NewPool[T Resetter]() *Pool[T] {
 	return &Pool[T]{
-		items: make([]T, 0),
+		sp: sync.Pool{
+			New: func() any {
+				var zero T
+				return zero
+			},
+		},
 	}
 }
 
 func (p *Pool[T]) Get() T {
-	if len(p.items) == 0 {
-		var r T
-		return r
-	}
-	last := p.items[len(p.items)-1]
-	p.items = p.items[:len(p.items)-1]
-
-	return last
+	v := p.sp.Get()
+	return v.(T)
 }
 
 func (p *Pool[T]) Put(item T) {
 	item.Reset()
-	p.items = append(p.items, item)
+	p.sp.Put(item)
 }

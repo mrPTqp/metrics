@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 
 	"go.uber.org/zap"
@@ -37,13 +38,32 @@ func NewFileAuditProcessor(filePath string, logger *zap.Logger) (*FileAuditProce
 
 func (p *FileAuditProcessor) writer() {
 	defer close(p.done)
+
 	writer := bufio.NewWriter(p.file)
-	defer func() { _ = writer.Flush() }()
-	defer func() { _ = p.file.Close() }()
+
+	defer func() {
+		if err := writer.Flush(); err != nil {
+			p.logger.Error("failed to flush writer on close", zap.Error(err))
+		}
+	}()
+	defer func() {
+		if err := p.file.Close(); err != nil {
+			p.logger.Error("failed to close audit file", zap.Error(err))
+		}
+	}()
 
 	for data := range p.ch {
-		_, _ = writer.Write(data)
-		_ = writer.Flush()
+		_, err := writer.Write(data)
+		if err != nil {
+			p.logger.Error("failed to write audit event", zap.Error(err))
+			continue
+		}
+
+		err = writer.Flush()
+		if err != nil {
+			p.logger.Error("failed to flush audit event", zap.Error(err))
+			continue
+		}
 	}
 }
 
@@ -53,9 +73,9 @@ func (p *FileAuditProcessor) Write(event AuditEvent) error {
 	case p.ch <- event.marshalWithNewline():
 		return nil
 	default:
-		p.logger.Warn("event was dropped because file channel is full")
+		p.logger.Warn("audit event dropped: channel is full")
+		return errors.New("audit event dropped: channel is full")
 	}
-	return nil
 }
 
 func (e *AuditEvent) marshalWithNewline() []byte {
