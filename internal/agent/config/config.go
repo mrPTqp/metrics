@@ -10,6 +10,7 @@ type Config struct {
 	PollInterval   int
 	SecretKey      *string
 	RateLimit      int
+	CertPath       *string
 }
 
 // Загрузка конфигурации
@@ -27,6 +28,7 @@ func LoadConfig() *Config {
 	pollInterval := pickValue(envs.PollInterval, flags.PollInterval, 2)
 	secretKey := pickValue(envs.SecretKey, flags.SecretKey, "")
 	rateLimit := pickValue(envs.RateLimit, flags.RateLimit, 20)
+	certPath := pickValue(envs.CertPath, flags.CertPath, "")
 
 	return &Config{
 		Address:        na,
@@ -34,6 +36,7 @@ func LoadConfig() *Config {
 		PollInterval:   pollInterval,
 		SecretKey:      &secretKey,
 		RateLimit:      rateLimit,
+		CertPath:       &certPath,
 	}
 }
 

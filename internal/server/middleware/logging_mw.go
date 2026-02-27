@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"bytes"
-	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -16,7 +15,6 @@ import (
 
 type loggingResponseWriter struct {
 	http.ResponseWriter
-	bodyBuf  *bytes.Buffer
 	status   int
 	size     int
 	hijacked bool
@@ -25,7 +23,6 @@ type loggingResponseWriter struct {
 func (lrw *loggingResponseWriter) Write(b []byte) (int, error) {
 	n, err := lrw.ResponseWriter.Write(b)
 	lrw.size += n
-	lrw.bodyBuf.Write(b)
 	return n, err
 }
 
@@ -34,16 +31,6 @@ func (lrw *loggingResponseWriter) WriteHeader(statusCode int) {
 		lrw.status = statusCode
 	}
 	lrw.ResponseWriter.WriteHeader(statusCode)
-}
-
-func readBody(r io.ReadCloser) ([]byte, error) {
-	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(r)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = r.Close() }()
-	return buf.Bytes(), nil
 }
 
 // Middleware для логирования HTTP-запросов и ответов. Запрос и ответ логируются одним логом с контекстом
@@ -67,21 +54,9 @@ func LoggingMiddleware(baseLogger *zap.Logger) func(http.Handler) http.Handler {
 			ctx = contextkey.WithLogger(ctx, log)
 			r = r.WithContext(ctx)
 
-			var reqBody []byte
-			if r.Body != nil && r.ContentLength > 0 {
-				var err error
-				reqBody, err = readBody(r.Body)
-				if err != nil {
-					log.Error("failed to read request body", zap.Error(err))
-				} else {
-					r.Body = io.NopCloser(bytes.NewBuffer(reqBody))
-				}
-			}
-
 			bodyBuf := &bytes.Buffer{}
 			lrw := &loggingResponseWriter{
 				ResponseWriter: w,
-				bodyBuf:        bodyBuf,
 				status:         0,
 				size:           0,
 				hijacked:       false,
@@ -102,13 +77,21 @@ func LoggingMiddleware(baseLogger *zap.Logger) func(http.Handler) http.Handler {
 					zap.Duration("duration", duration),
 				)
 
+				var reqBody []byte
+				if capturedBody := contextkey.RequestBodyFromContext(r.Context()); capturedBody != nil {
+					reqBody = capturedBody
+					log = log.With(zap.ByteString("request_body", reqBody))
+				} else {
+					log = log.With(zap.String("request_body", "[not captured]"))
+				}
+
 				if p := recover(); p != nil {
 					log.Error("panic recovered",
 						zap.Any("panic", p),
 						zap.ByteString("request_body", reqBody),
 						zap.ByteString("response_body", bodyBuf.Bytes()),
 					)
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					http.Error(lrw, "Internal Server Error", http.StatusInternalServerError)
 					return
 				}
 

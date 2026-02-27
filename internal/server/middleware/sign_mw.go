@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"net/http"
 
@@ -10,16 +9,6 @@ import (
 	"github.com/mrPTqp/metrics/internal/signer"
 	"go.uber.org/zap"
 )
-
-func writeJSONError(w http.ResponseWriter, message string, statusCode int, logger *zap.Logger) {
-	logger.Warn("Sending JSON error response",
-		zap.Int("status", statusCode),
-		zap.String("error", message))
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
-}
 
 // Middleware для проверки подписи запроса и генерации подписи ответа.
 // Key - секретный ключ для подписи (одинаковый для запроса и ответа).

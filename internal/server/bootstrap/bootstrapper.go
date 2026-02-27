@@ -17,6 +17,7 @@ import (
 	"github.com/mrPTqp/metrics/internal/server/service"
 	"github.com/mrPTqp/metrics/internal/server/storage"
 	"github.com/mrPTqp/metrics/internal/server/storage/migrations"
+	"github.com/mrPTqp/metrics/internal/crypto"
 	"go.uber.org/zap"
 )
 
@@ -106,14 +107,23 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) (*AppComponents, error) {
 	mh := handler.NewMetricHandler(ms, bs.logger)
 
 	mws := []func(http.Handler) http.Handler{
-		middleware.LoggingMiddleware(bs.logger),
+		 middleware.LoggingRequestBodyMiddleware,
+		 middleware.GzipMiddleware,
 	}
 
 	if bs.cfg.SecretKey != nil && *bs.cfg.SecretKey != "" {
 		mws = append(mws, middleware.SignMiddleware(*bs.cfg.SecretKey))
 	}
 
-	mws = append(mws, middleware.GzipMiddleware)
+	if bs.cfg.PrivateKeyPath != nil && *bs.cfg.PrivateKeyPath != "" {
+		privateKey, err := crypto.ReadPrivateKey(*bs.cfg.PrivateKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load private key: %w", err)
+		}
+		mws = append(mws, middleware.DecryptMiddleware(privateKey))
+	}	
+
+	mws = append(mws, middleware.LoggingMiddleware(bs.logger))	
 
 	return &AppComponents{
 		Config:          bs.cfg,

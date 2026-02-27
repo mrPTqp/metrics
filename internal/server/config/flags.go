@@ -13,6 +13,7 @@ type Flags struct {
 	SecretKey       *string
 	AuditFilePath   *string
 	AuditURL        *string
+	PrivateKeyPath  *string
 }
 
 // Парсинг флагов
@@ -25,6 +26,7 @@ func ParseFlags() *Flags {
 	var secretKey string
 	var auditFilePath string
 	var auditURL string
+	var privateKeyPath string
 
 	flag.StringVar(&addr, "a", "", "address and port to run server")
 	flag.IntVar(&storeInterval, "i", 0, "store interval")
@@ -34,6 +36,7 @@ func ParseFlags() *Flags {
 	flag.StringVar(&secretKey, "k", "", "sign secret key")
 	flag.StringVar(&auditFilePath, "audit-file", "", "audit file path")
 	flag.StringVar(&auditURL, "audit-url", "", "audit url")
+	flag.StringVar(&privateKeyPath, "crypto-key", "", "private key path")	
 
 	flag.Parse()
 
@@ -46,5 +49,6 @@ func ParseFlags() *Flags {
 		SecretKey:       &secretKey,
 		AuditFilePath:   &auditFilePath,
 		AuditURL:        &auditURL,
+		PrivateKeyPath:  &privateKeyPath,
 	}
 }

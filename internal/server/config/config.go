@@ -19,6 +19,7 @@ type Config struct {
 	FileAuditEnabled bool
 	AuditURL         *string
 	HTTPAuditEnabled bool
+	PrivateKeyPath   *string
 }
 
 // Загрузка конфигурации
@@ -52,6 +53,7 @@ func LoadConfig() *Config {
 	}
 
 	auditURL := pickValue(envs.AuditURL, flags.AuditURL, "")
+	privateKeyPath := pickValue(envs.PrivateKeyPath, flags.PrivateKeyPath, "")
 
 	return &Config{
 		Address:          na,
@@ -65,6 +67,7 @@ func LoadConfig() *Config {
 		FileAuditEnabled: fileAuditEnabled,
 		AuditURL:         &auditURL,
 		HTTPAuditEnabled: auditURL != "",
+		PrivateKeyPath:   &privateKeyPath,
 	}
 }
 

@@ -14,6 +14,7 @@ type Envs struct {
 	SecretKey       *string
 	AuditFilePath   *string
 	AuditURL        *string
+	PrivateKeyPath  *string
 }
 
 // Парсинг переменных окружения
@@ -26,6 +27,7 @@ func ParseEnvs() *Envs {
 	var secretKey *string
 	var auditFilePath *string
 	var auditURL *string
+	var privateKeyPath *string
 
 	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
 		address = &envAddr
@@ -67,6 +69,10 @@ func ParseEnvs() *Envs {
 		auditURL = &envAuditURL
 	}
 
+	if envPrivateKeyPath := os.Getenv("CRYPTO_KEY"); envPrivateKeyPath != "" {
+		privateKeyPath = &envPrivateKeyPath
+	}
+
 	return &Envs{
 		Address:         address,
 		StoreInterval:   storeInterval,
@@ -76,5 +82,6 @@ func ParseEnvs() *Envs {
 		SecretKey:       secretKey,
 		AuditFilePath:   auditFilePath,
 		AuditURL:        auditURL,
+		PrivateKeyPath:  privateKeyPath,
 	}
 }

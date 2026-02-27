@@ -11,6 +11,7 @@ type Envs struct {
 	PollInterval   *int
 	SecretKey      *string
 	RateLimit      *int
+	CertPath       *string
 }
 
 // Парсинг переменных окружения
@@ -20,6 +21,7 @@ func ParseEnvs() *Envs {
 	var pollInterval *int
 	var secretKey *string
 	var rateLimit *int
+	var certPath *string
 
 	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
 		address = &envAddr
@@ -53,11 +55,16 @@ func ParseEnvs() *Envs {
 		}
 	}
 
+	if envCertPath := os.Getenv("CRYPTO_KEY"); envCertPath != "" {
+		certPath = &envCertPath
+	}
+
 	return &Envs{
 		Address:        address,
 		ReportInterval: reportInterval,
 		PollInterval:   pollInterval,
 		SecretKey:      secretKey,
 		RateLimit:      rateLimit,
+		CertPath:       certPath,
 	}
 }

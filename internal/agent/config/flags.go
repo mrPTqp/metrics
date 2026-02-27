@@ -10,6 +10,7 @@ type Flags struct {
 	PollInterval   *int
 	SecretKey      *string
 	RateLimit      *int
+	CertPath       *string
 }
 
 // Парсинг флагов
@@ -19,12 +20,14 @@ func ParseFlags() *Flags {
 	var pollInterval int
 	var secretKey string
 	var rateLimit int
+	var certPath string
 
 	flag.StringVar(&addr, "a", "", "address and port to send metrics")
 	flag.IntVar(&reportInterval, "r", 10, "report interval in seconds")
 	flag.IntVar(&pollInterval, "p", 2, "poll interval in seconds")
 	flag.StringVar(&secretKey, "k", "", "sign secret key")
 	flag.IntVar(&rateLimit, "l", 20, "agent rate limit")
+	flag.StringVar(&certPath, "crypto-key", "", "certificate path")
 
 	flag.Parse()
 
@@ -34,5 +37,6 @@ func ParseFlags() *Flags {
 		PollInterval:   &pollInterval,
 		SecretKey:      &secretKey,
 		RateLimit:      &rateLimit,
+		CertPath:       &certPath,
 	}
 }

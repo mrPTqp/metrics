@@ -7,6 +7,7 @@ import (
 
 type loggerKey struct{}
 type clientIPKey struct{}
+type requestBodyKey struct{}
 
 // Установка логгера в контекст
 func WithLogger(ctx context.Context, logger *zap.Logger) context.Context {
@@ -16,6 +17,11 @@ func WithLogger(ctx context.Context, logger *zap.Logger) context.Context {
 // Установка IP клиента в контекст
 func WithClientIP(ctx context.Context, ip string) context.Context {
 	return context.WithValue(ctx, clientIPKey{}, ip)
+}
+
+// WithRequestBody добавляет тело запроса в контекст
+func WithRequestBody(ctx context.Context, body []byte) context.Context {
+	return context.WithValue(ctx, requestBodyKey{}, body)
 }
 
 // Получение логгера из контекста
@@ -33,4 +39,12 @@ func GetClientIP(ctx context.Context) string {
 		ip = clientIP
 	}
 	return ip
+}
+
+// RequestBodyFromContext извлекает тело запроса из контекста
+func RequestBodyFromContext(ctx context.Context) []byte {
+	if body, ok := ctx.Value(requestBodyKey{}).([]byte); ok {
+		return body
+	}
+	return nil
 }
