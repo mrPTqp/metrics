@@ -1,0 +1,5 @@
+{
+    "address": "localhost:8081",
+    "report_interval": 3,
+    "poll_interval": 1
+}
