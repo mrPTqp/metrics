@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -170,7 +171,7 @@ func TestMetricsAgent_SendMetrics(t *testing.T) {
 			client := &http.Client{Timeout: time.Second * 5}
 
 			agent := NewMetricsAgent(client, cfg, mockRepo, logger)
-			agent.SendMetrics()
+			agent.SendMetrics(context.Background())
 
 			mockRepo.AssertExpectations(t)
 		})

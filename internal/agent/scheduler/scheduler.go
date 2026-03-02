@@ -40,7 +40,7 @@ func (s *MetricsScheduler) Start(ctx context.Context, pollInterval int, reportIn
 
 	for i := range rateLimit {
 		wg.Add(1)
-		go s.worker(i, taskCh, &wg)
+		go s.worker(ctx, i, taskCh, &wg)
 	}
 
 	for {
@@ -66,13 +66,13 @@ func (s *MetricsScheduler) Start(ctx context.Context, pollInterval int, reportIn
 	}
 }
 
-func (s *MetricsScheduler) worker(id int, tasks <-chan struct{}, wg *sync.WaitGroup) {
+func (s *MetricsScheduler) worker(ctx context.Context, id int, tasks <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 	s.logger.Debug("worker started and waiting for tasks", zap.Int("worker_id", id))
 
 	for range tasks {
 		s.logger.Debug("worker received task, sending metrics", zap.Int("worker_id", id))
-		s.agent.SendMetrics()
+		s.agent.SendMetrics(ctx)
 		s.logger.Debug("worker finished sending metrics", zap.Int("worker_id", id))
 	}
 
