@@ -97,7 +97,7 @@ func TestMetricHandler_SaveMetricHandlerJSON(t *testing.T) {
 			handler.SaveMetricHandlerJSON(w, req)
 
 			resp := w.Result()
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != tt.expectedStatus {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, resp.StatusCode)
@@ -195,7 +195,7 @@ func TestMetricHandler_ValueMetricHandlerJSON(t *testing.T) {
 			handler.ValueMetricHandlerJSON(w, req)
 
 			resp := w.Result()
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != tt.expectedStatus {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, resp.StatusCode)
@@ -416,7 +416,7 @@ func TestMetricHandler_GetMetricHandlerPlain(t *testing.T) {
 			handler.GetMetricHandler(w, r)
 
 			resp := w.Result()
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != tt.expectedStatus {
 				t.Errorf("expected %d, got %d", tt.expectedStatus, resp.StatusCode)
@@ -451,7 +451,7 @@ func TestMetricHandler_CollectMetricsHandler(t *testing.T) {
 	handler.CollectMetricsHandler(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("expected 200 OK, got %d", resp.StatusCode)

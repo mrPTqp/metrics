@@ -22,14 +22,14 @@ func (c *PostgresErrorClassifier) Classify(err error) retry.ErrorClassification 
 
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
-		return СlassifyPgError(pgErr)
+		return ClassifyPgError(pgErr)
 	}
 
 	// По умолчанию считаем ошибку неповторяемой
 	return retry.NonRetriable
 }
 
-func СlassifyPgError(pgErr *pgconn.PgError) retry.ErrorClassification {
+func ClassifyPgError(pgErr *pgconn.PgError) retry.ErrorClassification {
 	// Коды ошибок PostgreSQL: https://www.postgresql.org/docs/current/errcodes-appendix.html
 
 	switch pgErr.Code {

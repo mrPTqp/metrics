@@ -37,7 +37,7 @@ func (fp *FileProducer) WriteData(data snapshotData) error {
 		fp.logger.Error("failed to create backup file", zap.String("path", fp.filePath), zap.Error(err))
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	if err := json.NewEncoder(file).Encode(data); err != nil {
 		fp.logger.Error("failed to encode data to JSON", zap.Error(err))
@@ -84,7 +84,7 @@ func (fc *FileConsumer) ReadData() (snapshotData, error) {
 		fc.logger.Error("failed to open snapshot file", zap.String("file", fc.filePath), zap.Error(err))
 		return data, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	if err := json.NewDecoder(file).Decode(&data); err != nil {
 		if errors.Is(err, io.EOF) || errors.As(err, new(*json.SyntaxError)) {

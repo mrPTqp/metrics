@@ -69,7 +69,7 @@ func (p *HTTPAuditProcessor) send(event AuditEvent) {
 		p.logger.Warn("error response for http audit event", zap.Error(err))
 		return
 	}
-	resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 }
 
 // Останавливает обработчик событий аудита с отправкой по HTTP

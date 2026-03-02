@@ -12,7 +12,7 @@ func RunMigrations(dsn string, logger *zap.Logger) error {
 	if err != nil {
 		return err
 	}
-	defer m.Close()
+	defer func() { _, _ = m.Close() }()
 
 	current, _, _ := m.Version()
 	logger.Info("current migration version", zap.Uint("version", current))

@@ -42,7 +42,7 @@ func readBody(r io.ReadCloser) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	r.Close()
+	defer func() { _ = r.Close() }()
 	return buf.Bytes(), nil
 }
 
