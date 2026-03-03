@@ -17,7 +17,10 @@ type Config struct {
 func LoadConfig() *Config {
 	flags := ParseFlags()
 	envs := ParseEnvs()
-	jsonConfig := ParseJSONConfig(envs.JSONConfigPath, flags.JSONConfigPath)
+	jsonConfig, err := ParseJSONConfig(envs.JSONConfigPath, flags.JSONConfigPath)
+	if err != nil {
+		panic("error parsing json config: " + err.Error())
+	}
 
 	na := models.NetAddress{}
 	address := pickValue(envs.Address, flags.Address, jsonConfig.Address, "localhost:8080")

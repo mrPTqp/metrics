@@ -26,7 +26,10 @@ type Config struct {
 func LoadConfig() *Config {
 	envs := ParseEnvs()
 	flags := ParseFlags()
-	jsonConfig := ParseJSONConfig(envs.JSONConfigPath, flags.JSONConfigPath)
+	jsonConfig, err := ParseJSONConfig(envs.JSONConfigPath, flags.JSONConfigPath)
+	if err != nil {
+		panic("error parsing json config: " + err.Error())
+	}
 
 	na := models.NetAddress{}
 	address := pickValue(envs.Address, flags.Address, jsonConfig.Address, "localhost:8080")
@@ -40,8 +43,7 @@ func LoadConfig() *Config {
 		syncBackupToFile = true
 	}
 
-	fileStoragePath := pickValue(envs.FileStoragePath, flags.FileStoragePath, jsonConfig.FileStoragePath, os.TempDir()+"/")
-	fileStoragePath = filepath.FromSlash(fileStoragePath + "backup.log")
+	fileStoragePath := pickValue(envs.FileStoragePath, flags.FileStoragePath, jsonConfig.FileStoragePath, os.TempDir()+"/backup.log")
 	restore := pickValue(envs.Restore, flags.Restore, jsonConfig.Restore, false)
 	databaseDsn := pickValue(envs.DatabaseDsn, flags.DatabaseDsn, jsonConfig.DatabaseDsn, "")
 	secretKey := pickValue(envs.SecretKey, flags.SecretKey, jsonConfig.SecretKey, "")

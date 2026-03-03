@@ -18,8 +18,6 @@ type EncryptTransport struct {
 }
 
 func (et *EncryptTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	var err error
-
 	if req.Body != nil {
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
@@ -35,11 +33,6 @@ func (et *EncryptTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		req.Body = io.NopCloser(bytes.NewBuffer(encryptedBody))
 		req.ContentLength = int64(len(encryptedBody))
 	}
-
-	resp, err := et.RoundTripper.RoundTrip(req)
-	if err != nil {
-		return resp, err
-	}
-
-	return resp, err
+	
+	return et.RoundTripper.RoundTrip(req)
 }

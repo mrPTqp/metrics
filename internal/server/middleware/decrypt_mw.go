@@ -18,6 +18,7 @@ func DecryptMiddleware(privateKey *rsa.PrivateKey) func(http.Handler) http.Handl
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet {
 				next.ServeHTTP(w, r)
+				return
 			}
 			defer r.Body.Close()
 
