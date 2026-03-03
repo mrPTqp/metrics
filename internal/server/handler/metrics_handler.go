@@ -1,20 +1,33 @@
 package handler
 
 import (
-	"github.com/mrPTqp/metrics/internal/server/service"
 	"go.uber.org/zap"
+
+	"github.com/mrPTqp/metrics/internal/server/service"
 )
 
 // Обработчик HTTP запросов
 type MetricHandler struct {
-	service service.MetricsService
-	logger  *zap.Logger
+	writer service.MetricWriter
+	reader service.MetricReader
+	lister service.MetricsLister
+	pinger service.Pinger
+	logger *zap.Logger
 }
 
 // Возвращает новый экземпляр MetricHandler
-func NewMetricHandler(service service.MetricsService, logger *zap.Logger) *MetricHandler {
+func NewMetricHandler(
+	writer service.MetricWriter,
+	reader service.MetricReader,
+	lister service.MetricsLister,
+	pinger service.Pinger,
+	logger *zap.Logger,
+) *MetricHandler {
 	return &MetricHandler{
-		service: service,
-		logger:  logger,
+		writer: writer,
+		reader: reader,
+		lister: lister,
+		pinger: pinger,
+		logger: logger,
 	}
 }

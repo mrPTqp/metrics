@@ -12,15 +12,15 @@ import (
 
 // Создатель резервной копии метрик
 type Backuper struct {
-	service service.MetricsService
+	lister  service.MetricsLister
 	storage *storage.FileStorage
 	logger  *zap.Logger
 }
 
 // Возвращает новый экземпляр Backuper
-func NewBackuper(service service.MetricsService, storage *storage.FileStorage, logger *zap.Logger) *Backuper {
+func NewBackuper(writer service.MetricWriter, lister service.MetricsLister, storage *storage.FileStorage, logger *zap.Logger) *Backuper {
 	return &Backuper{
-		service: service,
+		lister: lister,
 		storage: storage,
 		logger:  logger,
 	}
@@ -32,7 +32,7 @@ func (b *Backuper) Backup(ctx context.Context) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	gauges, counters := b.service.ListAllMetrics(timeoutCtx)
+	gauges, counters := b.lister.ListAllMetrics(timeoutCtx)
 
 	err := b.storage.SaveAllMetrics(timeoutCtx, gauges, counters)
 	if err != nil {

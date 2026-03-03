@@ -11,21 +11,21 @@ import (
 
 // Декоратор для аудита
 type AuditService struct {
-	service  MetricsService
+	writer   MetricWriter
 	eventBus *audit.EventBus
 }
 
 // Возвращает новый экземпляр AuditService
-func NewAuditService(service MetricsService, bus *audit.EventBus) *AuditService {
+func NewAuditService(writer MetricWriter, bus *audit.EventBus) *AuditService {
 	return &AuditService{
-		service:  service,
+		writer:   writer,
 		eventBus: bus,
 	}
 }
 
 // Прокидывает сохранение gauge метрики в сервис и отправляет в шину событие аудита
 func (a *AuditService) SaveGaugeMetric(ctx context.Context, mName string, mValue *float64) error {
-	if err := a.service.SaveGaugeMetric(ctx, mName, mValue); err != nil {
+	if err := a.writer.SaveGaugeMetric(ctx, mName, mValue); err != nil {
 		return err
 	}
 	a.logEvent(ctx, []string{mName}, contextkey.LoggerFromContext(ctx))
@@ -35,7 +35,7 @@ func (a *AuditService) SaveGaugeMetric(ctx context.Context, mName string, mValue
 
 // Прокидывает сохранение counter метрики в сервис и отправляет в шину событие аудита
 func (a *AuditService) SaveCounterMetric(ctx context.Context, mName string, mValue *int64) error {
-	if err := a.service.SaveCounterMetric(ctx, mName, mValue); err != nil {
+	if err := a.writer.SaveCounterMetric(ctx, mName, mValue); err != nil {
 		return err
 	}
 	a.logEvent(ctx, []string{mName}, contextkey.LoggerFromContext(ctx))
@@ -44,7 +44,7 @@ func (a *AuditService) SaveCounterMetric(ctx context.Context, mName string, mVal
 
 // Прокидывает сохранение gauge и counter метрик в сервис и отправляет в шину событие аудита
 func (a *AuditService) SaveAllMetrics(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
-	if err := a.service.SaveAllMetrics(ctx, gauges, counters); err != nil {
+	if err := a.writer.SaveAllMetrics(ctx, gauges, counters); err != nil {
 		return err
 	}
 	var names []string
@@ -56,26 +56,6 @@ func (a *AuditService) SaveAllMetrics(ctx context.Context, gauges map[string]flo
 	}
 	a.logEvent(ctx, names, contextkey.LoggerFromContext(ctx))
 	return nil
-}
-
-// Прокси
-func (a *AuditService) GetGaugeMetric(ctx context.Context, name string) (float64, error) {
-	return a.service.GetGaugeMetric(ctx, name)
-}
-
-// Прокси
-func (a *AuditService) GetCounterMetric(ctx context.Context, name string) (int64, error) {
-	return a.service.GetCounterMetric(ctx, name)
-}
-
-// Прокси
-func (a *AuditService) ListAllMetrics(ctx context.Context) (map[string]float64, map[string]int64) {
-	return a.service.ListAllMetrics(ctx)
-}
-
-// Прокси
-func (a *AuditService) Ping(ctx context.Context) bool {
-	return a.service.Ping(ctx)
 }
 
 func (a *AuditService) logEvent(ctx context.Context, mNames []string, logger *zap.Logger) {
