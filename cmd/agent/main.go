@@ -14,6 +14,7 @@ import (
 	"github.com/mrPTqp/metrics/internal/agent/config"
 	"github.com/mrPTqp/metrics/internal/agent/scheduler"
 	"github.com/mrPTqp/metrics/internal/agent/storage"
+	"github.com/mrPTqp/metrics/internal/crypto"
 	"github.com/mrPTqp/metrics/internal/logger"
 	"go.uber.org/zap"
 )
@@ -36,7 +37,7 @@ func printBuildInfo(w io.Writer) {
 
 func main() {
 	printBuildInfo(os.Stdout)
-	
+
 	log := logger.NewLogger()
 	defer func() {
 		_ = log.Sync()
@@ -53,14 +54,22 @@ func main() {
 	}
 
 	if cfg.SecretKey != nil && *cfg.SecretKey != "" {
-		originalTransport := client.Transport
-		if originalTransport == nil {
-			originalTransport = http.DefaultTransport
+		client.Transport = &agent.SigningTransport{
+			RoundTripper: client.Transport,
+			SecretKey:    *cfg.SecretKey,
+			Logger:       log,
+		}
+	}
+
+	if cfg.CertPath != nil && *cfg.CertPath != "" {
+		cert, err := crypto.ReadCertificate(*cfg.CertPath)
+		if err != nil || cert == nil {
+			log.Fatal("failed to load certificate", zap.Error(err))
 		}
 
-		client.Transport = &agent.SigningTransport{
-			RoundTripper: originalTransport,
-			SecretKey:    *cfg.SecretKey,
+		client.Transport = &agent.EncryptTransport{
+			RoundTripper: client.Transport,
+			Cert:         cert,
 			Logger:       log,
 		}
 	}
@@ -69,7 +78,7 @@ func main() {
 	a := agent.NewMetricsAgent(client, cfg, mr, log)
 	sc := scheduler.NewScheduler(a, log)
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer stop()
 
 	sendWorkersSize := cfg.RateLimit
@@ -80,6 +89,8 @@ func main() {
 
 	<-ctx.Done()
 	log.Info("shutdown signal received")
+	log.Info("sending final metrics...")
+	a.SendMetrics(ctx)
 	log.Info("waiting for scheduler to finish...")
 	log.Info("agent stopped gracefully")
 }

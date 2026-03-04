@@ -50,7 +50,7 @@ func (ma *MetricsAgent) PollAdditionalGaugeMetrics() {
 }
 
 // Отправляет собранные метрики на сервер
-func (ma *MetricsAgent) SendMetrics() {
+func (ma *MetricsAgent) SendMetrics(ctx context.Context) {
 	address := ma.cfg.Address
 
 	gauges, counters := ma.repository.GetAllMetrics()
@@ -114,21 +114,21 @@ func (ma *MetricsAgent) SendMetrics() {
 
 	var resp *http.Response
 	err = retry.DoWithRetry(
-		context.Background(),
+		ctx,
 		ma.ec,
 		func() error {
 			r, err2 := ma.c.Do(httpReq)
 			if err2 != nil {
 				return err2
 			}
-			defer func() { _ = resp.Body.Close() }()
+			defer r.Body.Close()
 
 			resp = r
 			return nil
 		},
 		3,
 		1*time.Second,
-	)	
+	)
 
 	if err != nil {
 		ma.logger.Error("failed to send metrics after retries", zap.Error(err))

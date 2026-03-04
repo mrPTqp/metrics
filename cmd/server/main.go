@@ -45,7 +45,7 @@ func main() {
 
 	bootstrapper := bootstrap.NewBootstrapper(cfg, log)
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer stop()
 
 	var components *bootstrap.AppComponents
