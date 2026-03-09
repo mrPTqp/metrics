@@ -1,8 +1,6 @@
 package service
 
-import (
-    "context"
-)
+import "context"
 
 type MetricWriter interface {
     SaveGaugeMetric(ctx context.Context, name string, value *float64) error
@@ -21,4 +19,11 @@ type MetricsLister interface {
 
 type Pinger interface {
     Ping(ctx context.Context) bool
+}
+
+// PingerFunc is an adapter to allow the use of ordinary functions as Pinger.
+type PingerFunc func(ctx context.Context) bool
+
+func (f PingerFunc) Ping(ctx context.Context) bool {
+	return f(ctx)
 }
