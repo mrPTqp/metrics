@@ -74,6 +74,11 @@ func main() {
 		}
 	}
 
+	client.Transport = &agent.ExtraHeadersTransport{
+		RoundTripper: client.Transport,
+		Logger:       log,
+	}
+
 	mr := storage.NewMemStorage()
 	a := agent.NewMetricsAgent(client, cfg, mr, log)
 	sc := scheduler.NewScheduler(a, log)

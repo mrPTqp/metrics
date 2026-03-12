@@ -128,6 +128,10 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) (*AppComponents, error) {
 
 	mws = append(mws, middleware.LoggingMiddleware(bs.logger))
 
+	if bs.cfg.TrustedSubnet != nil {
+		mws = append(mws, middleware.SubnetMiddleware(bs.cfg.TrustedSubnet, bs.logger))
+	}
+
 	return &AppComponents{
 		Config:          bs.cfg,
 		Logger:          bs.logger,

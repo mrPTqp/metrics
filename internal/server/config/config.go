@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 
@@ -20,6 +21,7 @@ type Config struct {
 	AuditURL         *string
 	HTTPAuditEnabled bool
 	PrivateKeyPath   *string
+	TrustedSubnet    *net.IPNet
 }
 
 // Загрузка конфигурации
@@ -57,6 +59,16 @@ func LoadConfig() *Config {
 
 	auditURL := pickValue(envs.AuditURL, flags.AuditURL, jsonConfig.AuditURL, "")
 	privateKeyPath := pickValue(envs.PrivateKeyPath, flags.PrivateKeyPath, jsonConfig.PrivateKeyPath, "")
+	
+	trustedSubnet := pickValue(envs.TrustedSubnet, flags.TrustedSubnet, jsonConfig.TrustedSubnet, "")
+	var parsedTrustedSubnet *net.IPNet
+	if trustedSubnet != "" {
+		_, subnet, err := net.ParseCIDR(trustedSubnet)
+		if err != nil {
+			panic("invalid trusted subnet: " + err.Error())
+		}
+		parsedTrustedSubnet = subnet
+	}
 
 	return &Config{
 		Address:          na,
@@ -71,6 +83,7 @@ func LoadConfig() *Config {
 		AuditURL:         &auditURL,
 		HTTPAuditEnabled: auditURL != "",
 		PrivateKeyPath:   &privateKeyPath,
+		TrustedSubnet:    parsedTrustedSubnet,
 	}
 }
 

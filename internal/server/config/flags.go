@@ -15,6 +15,7 @@ type Flags struct {
 	AuditURL        *string
 	PrivateKeyPath  *string
 	JSONConfigPath  *string
+	TrustedSubnet   *string
 }
 
 // Парсинг флагов
@@ -29,6 +30,7 @@ func ParseFlags() *Flags {
 	var auditURL string
 	var privateKeyPath string
 	var jsonConfigPath string
+	var trustedSubnet string
 
 	flag.StringVar(&addr, "a", "", "address and port to run server")
 	flag.IntVar(&storeInterval, "i", 0, "store interval")
@@ -41,6 +43,7 @@ func ParseFlags() *Flags {
 	flag.StringVar(&privateKeyPath, "crypto-key", "", "private key path")
 	flag.StringVar(&jsonConfigPath, "c", "", "config file path")
 	flag.StringVar(&jsonConfigPath, "config", "", "config file path")
+	flag.StringVar(&trustedSubnet, "t", "", "trusted subnet")
 
 	flag.Parse()
 

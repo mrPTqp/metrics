@@ -17,6 +17,7 @@ type rawJSONConfig struct {
 	AuditFilePath   *string `json:"audit_file_path,omitempty"`
 	AuditURL        *string `json:"audit_url,omitempty"`
 	PrivateKeyPath  *string `json:"crypto_key,omitempty"`
+	TrustedSubnet   *string `json:"trusted_subnet,omitempty"`
 }
 
 type JSONConfig struct {
@@ -29,6 +30,7 @@ type JSONConfig struct {
 	AuditFilePath   *string
 	AuditURL        *string
 	PrivateKeyPath  *string
+	TrustedSubnet   *string
 }
 
 func ParseJSONConfig(envPath, flagPath *string) (*JSONConfig, error) {
@@ -68,6 +70,7 @@ func ParseJSONConfig(envPath, flagPath *string) (*JSONConfig, error) {
 		AuditFilePath: raw.AuditFilePath,
 		AuditURL: raw.AuditURL,
 		PrivateKeyPath: raw.PrivateKeyPath,
+		TrustedSubnet: raw.TrustedSubnet,
 	}, nil
 }
 

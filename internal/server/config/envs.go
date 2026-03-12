@@ -15,7 +15,8 @@ type Envs struct {
 	AuditFilePath   *string
 	AuditURL        *string
 	PrivateKeyPath  *string
-	JSONConfigPath      *string
+	JSONConfigPath  *string
+	TrustedSubnet   *string
 }
 
 // Парсинг переменных окружения
@@ -30,6 +31,7 @@ func ParseEnvs() *Envs {
 	var auditURL *string
 	var privateKeyPath *string
 	var jsonConfigPath *string
+	var trustedSubnet *string
 
 	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
 		address = &envAddr
@@ -79,6 +81,10 @@ func ParseEnvs() *Envs {
 		jsonConfigPath = &envConfigPath
 	}
 
+	if envTrustedSubnet := os.Getenv("TRUSTED_SUBNET"); envTrustedSubnet != "" {
+		trustedSubnet = &envTrustedSubnet
+	}
+
 	return &Envs{
 		Address:         address,
 		StoreInterval:   storeInterval,
@@ -89,6 +95,7 @@ func ParseEnvs() *Envs {
 		AuditFilePath:   auditFilePath,
 		AuditURL:        auditURL,
 		PrivateKeyPath:  privateKeyPath,
-		JSONConfigPath:     jsonConfigPath,
+		JSONConfigPath:  jsonConfigPath,
+		TrustedSubnet:   trustedSubnet,
 	}
 }
