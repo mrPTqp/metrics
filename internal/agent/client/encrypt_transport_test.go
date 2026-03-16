@@ -38,10 +38,11 @@ func TestEncryptTransport_RoundTrip_EncryptsBody(t *testing.T) {
 		capturedBody = append([]byte(nil), body...)
 
 		// return dummy response
-		return &http.Response{
+		resp := &http.Response{
 			StatusCode: http.StatusOK,
 			Body:       io.NopCloser(bytes.NewReader([]byte("ok"))),
-		}, nil
+		}
+		return resp, nil
 	})
 
 	et := &EncryptTransport{
@@ -62,6 +63,7 @@ func TestEncryptTransport_RoundTrip_EncryptsBody(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("StatusCode = %d, want %d", resp.StatusCode, http.StatusOK)
 	}
+	defer resp.Body.Close()
 
 	if bytes.Equal(capturedBody, plainBody) {
 		t.Errorf("expected encrypted body to differ from plain body")

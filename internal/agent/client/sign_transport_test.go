@@ -65,6 +65,7 @@ func TestSigningTransport_RoundTrip_SignsRequestAndVerifiesResponse(t *testing.T
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("StatusCode = %d, want %d", resp.StatusCode, http.StatusOK)
 	}
+	defer resp.Body.Close()
 
 	// тело ответа должно быть доступно после проверки подписи
 	respBody, err := io.ReadAll(resp.Body)
@@ -102,5 +103,6 @@ func TestSigningTransport_RoundTrip_ResponseWithoutSignature(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("StatusCode = %d, want %d", resp.StatusCode, http.StatusOK)
 	}
+	defer resp.Body.Close()
 }
 

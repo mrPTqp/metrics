@@ -12,14 +12,14 @@ import (
 func SubnetMiddleware(trustedSubnet *net.IPNet, baseLogger *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			clientIp := r.Header.Get("X-Real-IP")
-			if clientIp == "" {
+			clientIP := r.Header.Get("X-Real-IP")
+			if clientIP == "" {
 				baseLogger.Error("request has empty X-Real-IP header")
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
 
-			if !trustedSubnet.Contains(net.ParseIP(clientIp)) {
+			if !trustedSubnet.Contains(net.ParseIP(clientIP)) {
 				baseLogger.Error("request has untrusted IP in X-Real-IP header")
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
