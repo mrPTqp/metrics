@@ -10,15 +10,20 @@ import (
 
 	"github.com/mrPTqp/metrics/internal/audit"
 	"github.com/mrPTqp/metrics/internal/crypto"
+	"github.com/mrPTqp/metrics/internal/proto"
+	grpcInterceptor "github.com/mrPTqp/metrics/internal/server/api/grpc"
+	grpcHandler "github.com/mrPTqp/metrics/internal/server/api/grpc/handler"
+	httpHandler "github.com/mrPTqp/metrics/internal/server/api/http/handler"
+	"github.com/mrPTqp/metrics/internal/server/api/http/middleware"
 	"github.com/mrPTqp/metrics/internal/server/backup"
 	"github.com/mrPTqp/metrics/internal/server/config"
-	"github.com/mrPTqp/metrics/internal/server/handler"
-	"github.com/mrPTqp/metrics/internal/server/middleware"
 	"github.com/mrPTqp/metrics/internal/server/repository"
 	"github.com/mrPTqp/metrics/internal/server/service"
 	"github.com/mrPTqp/metrics/internal/server/storage"
 	"github.com/mrPTqp/metrics/internal/server/storage/migrations"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 // Выделенный слой быстрой инициализации компонентов для запуска
@@ -107,7 +112,7 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) (*AppComponents, error) {
 		}
 	}
 
-	mh := handler.NewMetricHandler(writer, reader, lister, pinger, bs.logger)
+	mh := httpHandler.NewMetricHandler(writer, reader, lister, pinger, bs.logger)
 
 	mws := []func(http.Handler) http.Handler{
 		middleware.LoggingRequestBodyMiddleware,
@@ -132,15 +137,27 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) (*AppComponents, error) {
 		mws = append(mws, middleware.SubnetMiddleware(bs.cfg.TrustedSubnet, bs.logger))
 	}
 
+	var grpcServer *grpc.Server
+	if bs.cfg.GRPCEnabled {
+		grpcServer = grpc.NewServer(
+			grpc.UnaryInterceptor(grpcInterceptor.SubnetInterceptor(bs.cfg.TrustedSubnet, bs.logger)),
+		)
+		
+		proto.RegisterMetricsServer(grpcServer, grpcHandler.NewMetricsHandler(writer, bs.logger))
+		reflection.Register(grpcServer)
+	}
+
 	return &AppComponents{
 		Config:          bs.cfg,
 		Logger:          bs.logger,
 		Repo:            mr,
 		Handler:         mh,
+		Writer:          writer,
 		Backuper:        b,
 		Middlewares:     mws,
 		EventBus:        eventBus,
 		AuditProcessors: auditProcessors,
+		GRPCServer:      grpcServer,
 	}, nil
 }
 
@@ -148,9 +165,11 @@ type AppComponents struct {
 	Config          *config.Config
 	Logger          *zap.Logger
 	Repo            repository.MetricRepository
-	Handler         *handler.MetricHandler
+	Handler         *httpHandler.MetricHandler
+	Writer          service.MetricWriter
 	Backuper        *backup.Backuper
 	Middlewares     []func(http.Handler) http.Handler
 	EventBus        *audit.EventBus
 	AuditProcessors []audit.AuditProcessor
+	GRPCServer      *grpc.Server
 }

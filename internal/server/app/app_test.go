@@ -141,7 +141,7 @@ func TestApp_RunBackgroundJobs_StopsOnContextDone(t *testing.T) {
 	// Speed up ticker for test and make sure background loop is entered.
 	app.ticker = time.NewTicker(10 * time.Millisecond)
 	defer app.ticker.Stop()
-	app.backuper = new(backup.Backuper)
+	components.Backuper = new(backup.Backuper)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

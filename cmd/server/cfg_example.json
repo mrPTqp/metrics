@@ -1,6 +1,8 @@
 {
-    "address": "localhost:8081",
+    "address": "localhost:8080",
+    "grpc_address": "localhost:8081",
     "store_interval": "15s",
     "restore": true,
-    "trusted_subnet": "192.168.1.0/24"
+    "trusted_subnet": "172.16.0.0/16",
+    "grpc_enabled": true
 }

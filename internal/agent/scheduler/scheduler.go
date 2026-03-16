@@ -11,15 +11,17 @@ import (
 
 // Планировщик сбора и отправки метрик
 type MetricsScheduler struct {
-	agent  *agent.MetricsAgent
-	logger *zap.Logger
+	agent      *agent.MetricsAgent
+	grpcAgent  *agent.GRPCMetricsAgent
+	logger     *zap.Logger
 }
 
 // Возвращает новый экземпляр MetricsScheduler
-func NewScheduler(agent *agent.MetricsAgent, logger *zap.Logger) *MetricsScheduler {
+func NewScheduler(agent *agent.MetricsAgent, grpcAgent *agent.GRPCMetricsAgent, logger *zap.Logger) *MetricsScheduler {
 	return &MetricsScheduler{
-		agent:  agent,
-		logger: logger,
+		agent:     agent,
+		grpcAgent: grpcAgent,
+		logger:    logger,
 	}
 }
 
@@ -73,6 +75,7 @@ func (s *MetricsScheduler) worker(ctx context.Context, id int, tasks <-chan stru
 	for range tasks {
 		s.logger.Debug("worker received task, sending metrics", zap.Int("worker_id", id))
 		s.agent.SendMetrics(ctx)
+		s.agent.SendMetricsGRPC(ctx, s.grpcAgent)
 		s.logger.Debug("worker finished sending metrics", zap.Int("worker_id", id))
 	}
 

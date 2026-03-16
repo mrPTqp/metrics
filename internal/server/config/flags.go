@@ -6,6 +6,7 @@ import (
 
 type Flags struct {
 	Address         *string
+	GRPCAddress     *string
 	StoreInterval   *int
 	FileStoragePath *string
 	Restore         *bool
@@ -16,11 +17,13 @@ type Flags struct {
 	PrivateKeyPath  *string
 	JSONConfigPath  *string
 	TrustedSubnet   *string
+	GRPCEnabled     *bool
 }
 
 // Парсинг флагов
 func ParseFlags() *Flags {
 	var addr string
+	var grpcAddr string
 	var storeInterval int
 	var fileStoragePath string
 	var restore bool
@@ -33,6 +36,7 @@ func ParseFlags() *Flags {
 	var trustedSubnet string
 
 	flag.StringVar(&addr, "a", "", "address and port to run server")
+	flag.StringVar(&grpcAddr, "grpc-a", "", "address and port to run gRPC server")
 	flag.IntVar(&storeInterval, "i", 0, "store interval")
 	flag.StringVar(&fileStoragePath, "f", "", "file storage path")
 	flag.BoolVar(&restore, "r", false, "restore")
@@ -45,10 +49,14 @@ func ParseFlags() *Flags {
 	flag.StringVar(&jsonConfigPath, "config", "", "config file path")
 	flag.StringVar(&trustedSubnet, "t", "", "trusted subnet")
 
+	var grpcEnabled bool
+	flag.BoolVar(&grpcEnabled, "grpc-enabled", false, "enable gRPC server")
+
 	flag.Parse()
 
 	return &Flags{
 		Address:         &addr,
+		GRPCAddress:     &grpcAddr,
 		StoreInterval:   &storeInterval,
 		FileStoragePath: &fileStoragePath,
 		Restore:         &restore,
@@ -58,5 +66,7 @@ func ParseFlags() *Flags {
 		AuditURL:        &auditURL,
 		PrivateKeyPath:  &privateKeyPath,
 		JSONConfigPath:  &jsonConfigPath,
+		TrustedSubnet:   &trustedSubnet,
+		GRPCEnabled:     &grpcEnabled,
 	}
 }

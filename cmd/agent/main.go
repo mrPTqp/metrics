@@ -81,7 +81,23 @@ func main() {
 
 	mr := storage.NewMemStorage()
 	a := agent.NewMetricsAgent(client, cfg, mr, log)
-	sc := scheduler.NewScheduler(a, log)
+
+	var grpcAgent *agent.GRPCMetricsAgent
+	if cfg.GRPCEnabled {
+		grpcMetadataTransport := agent.NewGRPCMetadataTransport(log)
+		
+		var err error
+		grpcAgent, err = agent.NewGRPCMetricsAgent(cfg, log, grpcMetadataTransport)
+		if err != nil {
+			log.Fatal("failed to create gRPC agent", zap.Error(err))
+		} else {
+			log.Info("gRPC agent created successfully")
+		}
+	} else {
+		log.Info("gRPC agent disabled")
+	}
+
+	sc := scheduler.NewScheduler(a, grpcAgent, log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer stop()

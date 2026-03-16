@@ -9,6 +9,7 @@ import (
 
 type rawJSONConfig struct {
 	Address         *string `json:"address"`
+	GRPCAddress     *string `json:"grpc_address,omitempty"`
 	StoreInterval   *string `json:"store_interval"`
 	FileStoragePath *string `json:"store_file,omitempty"`
 	Restore         *bool   `json:"restore,omitempty"`
@@ -18,10 +19,12 @@ type rawJSONConfig struct {
 	AuditURL        *string `json:"audit_url,omitempty"`
 	PrivateKeyPath  *string `json:"crypto_key,omitempty"`
 	TrustedSubnet   *string `json:"trusted_subnet,omitempty"`
+	GRPCEnabled     *bool   `json:"grpc_enabled,omitempty"`
 }
 
 type JSONConfig struct {
 	Address         *string
+	GRPCAddress     *string
 	StoreInterval   *int
 	FileStoragePath *string
 	Restore         *bool
@@ -31,6 +34,7 @@ type JSONConfig struct {
 	AuditURL        *string
 	PrivateKeyPath  *string
 	TrustedSubnet   *string
+	GRPCEnabled     *bool
 }
 
 func ParseJSONConfig(envPath, flagPath *string) (*JSONConfig, error) {
@@ -62,6 +66,7 @@ func ParseJSONConfig(envPath, flagPath *string) (*JSONConfig, error) {
 
 	return &JSONConfig{
 		Address: raw.Address,
+		GRPCAddress: raw.GRPCAddress,
 		StoreInterval: storeIntervalSec,
 		FileStoragePath: raw.FileStoragePath,
 		Restore: raw.Restore,
@@ -71,6 +76,7 @@ func ParseJSONConfig(envPath, flagPath *string) (*JSONConfig, error) {
 		AuditURL: raw.AuditURL,
 		PrivateKeyPath: raw.PrivateKeyPath,
 		TrustedSubnet: raw.TrustedSubnet,
+		GRPCEnabled: raw.GRPCEnabled,
 	}, nil
 }
 

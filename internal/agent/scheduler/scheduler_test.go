@@ -33,7 +33,7 @@ func TestMetricsScheduler_worker(t *testing.T) {
 	}
 	a := agent.NewMetricsAgent(httpClient, cfg, mem, log)
 
-	s := NewScheduler(a, log)
+	s := NewScheduler(a, nil, log)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

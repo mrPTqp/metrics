@@ -8,21 +8,25 @@ import (
 )
 
 type rawJSONConfig struct {
-	Address        *string `json:"address"`
-	ReportInterval *string `json:"report_interval"`
-	PollInterval   *string `json:"poll_interval"`
-	SecretKey      *string `json:"secret_key,omitempty"`
-	RateLimit      *int    `json:"rate_limit,omitempty"`
-	CertPath       *string `json:"crypto_key,omitempty"`
+	Address           *string `json:"address"`
+	GRPCServerAddress *string `json:"grpc_server_address,omitempty"`
+	ReportInterval    *string `json:"report_interval"`
+	PollInterval      *string `json:"poll_interval"`
+	SecretKey         *string `json:"secret_key,omitempty"`
+	RateLimit         *int    `json:"rate_limit,omitempty"`
+	CertPath          *string `json:"crypto_key,omitempty"`
+	GRPCEnabled       *bool   `json:"grpc_enabled,omitempty"`
 }
 
 type JSONConfig struct {
-	Address        *string
-	ReportInterval *int
-	PollInterval   *int
-	SecretKey      *string
-	RateLimit      *int
-	CertPath       *string
+	Address           *string
+	GRPCServerAddress *string
+	ReportInterval    *int
+	PollInterval      *int
+	SecretKey         *string
+	RateLimit         *int
+	CertPath          *string
+	GRPCEnabled       *bool
 }
 
 func ParseJSONConfig(envPath, flagPath *string) (*JSONConfig, error) {
@@ -58,12 +62,14 @@ func ParseJSONConfig(envPath, flagPath *string) (*JSONConfig, error) {
 	}
 
 	return &JSONConfig{
-		Address:        raw.Address,
-		ReportInterval: reportSec,
-		PollInterval:   pollSec,
-		SecretKey:      raw.SecretKey,
-		RateLimit:      raw.RateLimit,
-		CertPath:       raw.CertPath,
+		Address:           raw.Address,
+		GRPCServerAddress: raw.GRPCServerAddress,
+		ReportInterval:    reportSec,
+		PollInterval:      pollSec,
+		SecretKey:         raw.SecretKey,
+		RateLimit:         raw.RateLimit,
+		CertPath:          raw.CertPath,
+		GRPCEnabled:       raw.GRPCEnabled,
 	}, nil
 }
 
