@@ -55,14 +55,19 @@ func (s *stubMetricWriter) SaveAllMetrics(_ context.Context, gauges map[string]f
 	return s.saveAllErr
 }
 
-type stubEventBus struct {
-	published []audit.AuditEvent
-	err       error
+// Создаем mock processor для тестов
+type mockAuditProcessor struct {
+	events []audit.AuditEvent
+	err    error
 }
 
-func (b *stubEventBus) Publish(e audit.AuditEvent) error {
-	b.published = append(b.published, e)
-	return b.err
+func (p *mockAuditProcessor) Write(e audit.AuditEvent) error {
+	p.events = append(p.events, e)
+	return p.err
+}
+
+func (p *mockAuditProcessor) Name() string {
+	return "mock"
 }
 
 func TestAuditService_SaveGaugeCounterAndAll(t *testing.T) {
@@ -71,10 +76,12 @@ func TestAuditService_SaveGaugeCounterAndAll(t *testing.T) {
 	ctx = contextkey.WithClientIP(ctx, "127.0.0.1")
 
 	writer := &stubMetricWriter{}
+	mockProcessor := &mockAuditProcessor{}
 
-	svc := NewAuditService(writer, (*audit.EventBus)(nil))
-	// Для проверки функциональности используем реальный eventBus
-	svc.eventBus = (*audit.EventBus)(nil)
+	// Создаем реальный EventBus с mock processor для тестирования
+	eventBus := audit.NewEventBus([]audit.AuditProcessor{mockProcessor}, 100, logger)
+
+	svc := NewAuditService(writer, eventBus)
 
 	// Проверяем, что методы writer вызываются
 	gv := 1.23

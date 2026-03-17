@@ -10,7 +10,9 @@ import (
 	"github.com/mrPTqp/metrics/internal/retry"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 // GRPCMetricsAgent отправляет метрики на сервер по gRPC
@@ -112,6 +114,27 @@ func (ga *GRPCMetricsAgent) Close() error {
 type GRPCErrorClassifier struct{}
 
 func (ec *GRPCErrorClassifier) Classify(err error) retry.ErrorClassification {
-	// Для простоты, retry для всех ошибок
-	return retry.Retriable
+	if err == nil {
+		return retry.NonRetriable
+	}
+
+	if err.Error() == "context canceled" {
+		return retry.NonRetriable
+	}
+
+	grpcStatus, ok := status.FromError(err)
+	if !ok {
+		return retry.Retriable
+	}
+
+	switch grpcStatus.Code() {
+	case codes.InvalidArgument, codes.Unauthenticated, codes.PermissionDenied:
+		return retry.NonRetriable
+	case codes.Unavailable, codes.DeadlineExceeded, codes.Internal, codes.Unknown, codes.ResourceExhausted:
+		return retry.Retriable
+	case codes.Canceled:
+		return retry.NonRetriable
+	default:
+		return retry.Retriable
+	}
 }

@@ -92,12 +92,12 @@ func ParseEnvs() *Envs {
 		trustedSubnet = &envTrustedSubnet
 	}
 
-	var grpcEnabled bool
+	var grpcEnabled *bool
 	if envGRPCEnabledStr := os.Getenv("GRPC_ENABLED"); envGRPCEnabledStr != "" {
 		if envGRPCEnabled, err := strconv.ParseBool(envGRPCEnabledStr); err != nil {
 			panic("wrong GRPC_ENABLED type value: " + envGRPCEnabledStr)
 		} else {
-			grpcEnabled = envGRPCEnabled
+			grpcEnabled = &envGRPCEnabled
 		}
 	}
 
@@ -114,6 +114,6 @@ func ParseEnvs() *Envs {
 		PrivateKeyPath:  privateKeyPath,
 		JSONConfigPath:  jsonConfigPath,
 		TrustedSubnet:   trustedSubnet,
-		GRPCEnabled:     &grpcEnabled,
+		GRPCEnabled:     grpcEnabled,
 	}
 }

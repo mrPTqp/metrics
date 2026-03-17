@@ -41,7 +41,6 @@ func LoadConfig() *Config {
 	secretKey := pickValue(envs.SecretKey, flags.SecretKey, jsonConfig.SecretKey, "")
 	rateLimit := pickValue(envs.RateLimit, flags.RateLimit, jsonConfig.RateLimit, 20)
 	certPath := pickValue(envs.CertPath, flags.CertPath, jsonConfig.CertPath, "")
-
 	grpcEnabled := pickValue(envs.GRPCEnabled, flags.GRPCEnabled, jsonConfig.GRPCEnabled, false)
 
 	return &Config{

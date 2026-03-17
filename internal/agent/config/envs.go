@@ -72,12 +72,12 @@ func ParseEnvs() *Envs {
 		jsonConfigPath = &envConfigPath
 	}
 
-	var grpcEnabled bool
+	var grpcEnabled *bool
 	if envGRPCEnabledStr := os.Getenv("GRPC_ENABLED"); envGRPCEnabledStr != "" {
 		if envGRPCEnabled, err := strconv.ParseBool(envGRPCEnabledStr); err != nil {
 			panic("wrong GRPC_ENABLED type value: " + envGRPCEnabledStr)
 		} else {
-			grpcEnabled = envGRPCEnabled
+			grpcEnabled = &envGRPCEnabled
 		}
 	}
 
@@ -90,6 +90,6 @@ func ParseEnvs() *Envs {
 		RateLimit:         rateLimit,
 		CertPath:          certPath,
 		JSONConfigPath:    jsonConfigPath,
-		GRPCEnabled:       &grpcEnabled,
+		GRPCEnabled:       grpcEnabled,
 	}
 }
