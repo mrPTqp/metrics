@@ -7,6 +7,7 @@ import (
 
 type Envs struct {
 	Address         *string
+	GRPCAddress     *string
 	StoreInterval   *int
 	FileStoragePath *string
 	Restore         *bool
@@ -15,12 +16,15 @@ type Envs struct {
 	AuditFilePath   *string
 	AuditURL        *string
 	PrivateKeyPath  *string
-	JSONConfigPath      *string
+	JSONConfigPath  *string
+	TrustedSubnet   *string
+	GRPCEnabled     *bool
 }
 
 // Парсинг переменных окружения
 func ParseEnvs() *Envs {
 	var address *string
+	var grpcAddress *string
 	var storeInterval *int
 	var fileStoragePath *string
 	var restore *bool
@@ -30,9 +34,14 @@ func ParseEnvs() *Envs {
 	var auditURL *string
 	var privateKeyPath *string
 	var jsonConfigPath *string
+	var trustedSubnet *string
 
 	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
 		address = &envAddr
+	}
+
+	if envGRPCAddr := os.Getenv("GRPC_ADDRESS"); envGRPCAddr != "" {
+		grpcAddress = &envGRPCAddr
 	}
 
 	if envStoreIntervalStr := os.Getenv("STORE_INTERVAL"); envStoreIntervalStr != "" {
@@ -79,8 +88,22 @@ func ParseEnvs() *Envs {
 		jsonConfigPath = &envConfigPath
 	}
 
+	if envTrustedSubnet := os.Getenv("TRUSTED_SUBNET"); envTrustedSubnet != "" {
+		trustedSubnet = &envTrustedSubnet
+	}
+
+	var grpcEnabled *bool
+	if envGRPCEnabledStr := os.Getenv("GRPC_ENABLED"); envGRPCEnabledStr != "" {
+		if envGRPCEnabled, err := strconv.ParseBool(envGRPCEnabledStr); err != nil {
+			panic("wrong GRPC_ENABLED type value: " + envGRPCEnabledStr)
+		} else {
+			grpcEnabled = &envGRPCEnabled
+		}
+	}
+
 	return &Envs{
 		Address:         address,
+		GRPCAddress:     grpcAddress,
 		StoreInterval:   storeInterval,
 		FileStoragePath: fileStoragePath,
 		Restore:         restore,
@@ -89,6 +112,8 @@ func ParseEnvs() *Envs {
 		AuditFilePath:   auditFilePath,
 		AuditURL:        auditURL,
 		PrivateKeyPath:  privateKeyPath,
-		JSONConfigPath:     jsonConfigPath,
+		JSONConfigPath:  jsonConfigPath,
+		TrustedSubnet:   trustedSubnet,
+		GRPCEnabled:     grpcEnabled,
 	}
 }

@@ -49,7 +49,7 @@ func (ma *MetricsAgent) PollAdditionalGaugeMetrics() {
 	ma.repository.SaveAdditionalGaugeMetrics(newAdditionalGauges)
 }
 
-// Отправляет собранные метрики на сервер
+// Отправляет собранные метрики на сервер по HTTP
 func (ma *MetricsAgent) SendMetrics(ctx context.Context) {
 	address := ma.cfg.Address
 
@@ -143,4 +143,14 @@ func (ma *MetricsAgent) SendMetrics(ctx context.Context) {
 	}
 
 	ma.logger.Info("metrics successfully sent to server")
+}
+
+// Отправляет собранные метрики на сервер по gRPC
+func (ma *MetricsAgent) SendMetricsGRPC(ctx context.Context, grpcAgent *GRPCMetricsAgent) {
+	if grpcAgent == nil {
+		ma.logger.Debug("gRPC agent is not configured")
+		return
+	}
+
+	grpcAgent.SendMetrics(ctx, ma.repository)
 }

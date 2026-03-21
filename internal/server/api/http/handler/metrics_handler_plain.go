@@ -49,7 +49,7 @@ func (mh *MetricHandler) handleSaveGaugePlain(w http.ResponseWriter, ctx context
 		return
 	}
 
-	err = mh.service.SaveGaugeMetric(ctx, name, &floatValue)
+	err = mh.writer.SaveGaugeMetric(ctx, name, &floatValue)
 	if err != nil {
 		log := contextkey.LoggerFromContext(ctx)
 		log.Error("error saving gauge metric", zap.String("name", name), zap.Float64("value", floatValue), zap.Error(err))
@@ -69,7 +69,7 @@ func (mh *MetricHandler) handleSaveCounterPlain(w http.ResponseWriter, ctx conte
 		return
 	}
 
-	err = mh.service.SaveCounterMetric(ctx, name, &intValue)
+	err = mh.writer.SaveCounterMetric(ctx, name, &intValue)
 	if err != nil {
 		log := contextkey.LoggerFromContext(ctx)
 		log.Error("error saving counter metric", zap.String("name", name), zap.Int64("value", intValue), zap.Error(err))
@@ -108,7 +108,7 @@ func (mh *MetricHandler) GetMetricHandler(w http.ResponseWriter, r *http.Request
 }
 
 func (mh *MetricHandler) handleGetGaugePlain(w http.ResponseWriter, ctx context.Context, name string) {
-	value, err := mh.service.GetGaugeMetric(ctx, name)
+	value, err := mh.reader.GetGaugeMetric(ctx, name)
 	if err != nil {
 		log := contextkey.LoggerFromContext(ctx)
 		log.Error("error getting gauge metric", zap.String("name", name), zap.Error(err))
@@ -120,7 +120,7 @@ func (mh *MetricHandler) handleGetGaugePlain(w http.ResponseWriter, ctx context.
 }
 
 func (mh *MetricHandler) handleGetCounterPlain(w http.ResponseWriter, ctx context.Context, name string) {
-	value, err := mh.service.GetCounterMetric(ctx, name)
+	value, err := mh.reader.GetCounterMetric(ctx, name)
 	if err != nil {
 		log := contextkey.LoggerFromContext(ctx)
 		log.Error("error getting counter metric", zap.String("name", name), zap.Error(err))
@@ -134,19 +134,19 @@ func (mh *MetricHandler) handleGetCounterPlain(w http.ResponseWriter, ctx contex
 // Возвращает все метрики в HTML формате
 func (mh *MetricHandler) CollectMetricsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
-	gauges, counters := mh.service.ListAllMetrics(r.Context())
+	gauges, counters := mh.lister.ListAllMetrics(r.Context())
 	renderMetricsHTML(w, gauges, counters)
 }
 
 // Проверяет достуность БД
 func (mh *MetricHandler) DBHealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	log := contextkey.LoggerFromContext(r.Context())
-	if mh.service == nil {
+	if mh.pinger == nil {
 		log.Error("service not available")
 		http.Error(w, "service not available", http.StatusInternalServerError)
 		return
 	}
-	if !mh.service.Ping(r.Context()) {
+	if !mh.pinger.Ping(r.Context()) {
 		log.Error("database unreachable")
 		http.Error(w, "database unreachable", http.StatusInternalServerError)
 		return

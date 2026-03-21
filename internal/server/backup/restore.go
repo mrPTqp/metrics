@@ -15,15 +15,15 @@ import (
 
 // Загрузчик резервной копии метрик из файла
 type Restorer struct {
-	service service.MetricsService
+	writer  service.MetricWriter
 	storage *storage.FileStorage
 	logger  *zap.Logger
 }
 
 // Возвращает новый экземпляр Restorer
-func NewRestorer(service service.MetricsService, storage *storage.FileStorage, logger *zap.Logger) *Restorer {
+func NewRestorer(writer service.MetricWriter, storage *storage.FileStorage, logger *zap.Logger) *Restorer {
 	return &Restorer{
-		service: service,
+		writer:  writer,
 		storage: storage,
 		logger:  logger,
 	}
@@ -54,7 +54,7 @@ func (r *Restorer) Restore(ctx context.Context) error {
 		return nil
 	}
 
-	if err := r.service.SaveAllMetrics(restoreCtx, gauges, counters); err != nil {
+	if err := r.writer.SaveAllMetrics(restoreCtx, gauges, counters); err != nil {
 		log.Error("failed to load metrics into memory", zap.Error(err))
 		return err
 	}

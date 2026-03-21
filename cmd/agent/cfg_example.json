@@ -1,5 +1,7 @@
 {
-    "address": "localhost:8081",
+    "address": "localhost:8080",
+    "grpc_server_address": "localhost:8081",
     "report_interval": "3s",
-    "poll_interval": "1s"
+    "poll_interval": "1s",
+    "grpc_enabled": true
 }

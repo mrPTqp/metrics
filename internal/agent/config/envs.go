@@ -6,18 +6,21 @@ import (
 )
 
 type Envs struct {
-	Address        *string
-	ReportInterval *int
-	PollInterval   *int
-	SecretKey      *string
-	RateLimit      *int
-	CertPath       *string
-	JSONConfigPath *string
+	Address           *string
+	GRPCServerAddress *string
+	ReportInterval    *int
+	PollInterval      *int
+	SecretKey         *string
+	RateLimit         *int
+	CertPath          *string
+	JSONConfigPath    *string
+	GRPCEnabled       *bool
 }
 
 // Парсинг переменных окружения
 func ParseEnvs() *Envs {
 	var address *string
+	var grpcServerAddress *string
 	var reportInterval *int
 	var pollInterval *int
 	var secretKey *string
@@ -27,6 +30,10 @@ func ParseEnvs() *Envs {
 
 	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
 		address = &envAddr
+	}
+
+	if envGRPCAddr := os.Getenv("GRPC_SERVER_ADDRESS"); envGRPCAddr != "" {
+		grpcServerAddress = &envGRPCAddr
 	}
 
 	if envReportIntervalStr := os.Getenv("REPORT_INTERVAL"); envReportIntervalStr != "" {
@@ -65,13 +72,24 @@ func ParseEnvs() *Envs {
 		jsonConfigPath = &envConfigPath
 	}
 
+	var grpcEnabled *bool
+	if envGRPCEnabledStr := os.Getenv("GRPC_ENABLED"); envGRPCEnabledStr != "" {
+		if envGRPCEnabled, err := strconv.ParseBool(envGRPCEnabledStr); err != nil {
+			panic("wrong GRPC_ENABLED type value: " + envGRPCEnabledStr)
+		} else {
+			grpcEnabled = &envGRPCEnabled
+		}
+	}
+
 	return &Envs{
-		Address:        address,
-		ReportInterval: reportInterval,
-		PollInterval:   pollInterval,
-		SecretKey:      secretKey,
-		RateLimit:      rateLimit,
-		CertPath:       certPath,
-		JSONConfigPath: jsonConfigPath,
+		Address:           address,
+		GRPCServerAddress: grpcServerAddress,
+		ReportInterval:    reportInterval,
+		PollInterval:      pollInterval,
+		SecretKey:         secretKey,
+		RateLimit:         rateLimit,
+		CertPath:          certPath,
+		JSONConfigPath:    jsonConfigPath,
+		GRPCEnabled:       grpcEnabled,
 	}
 }

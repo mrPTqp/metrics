@@ -9,16 +9,21 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/mrPTqp/metrics/internal/audit"
+	"github.com/mrPTqp/metrics/internal/crypto"
+	"github.com/mrPTqp/metrics/internal/proto"
+	grpcInterceptor "github.com/mrPTqp/metrics/internal/server/api/grpc"
+	grpcHandler "github.com/mrPTqp/metrics/internal/server/api/grpc/handler"
+	httpHandler "github.com/mrPTqp/metrics/internal/server/api/http/handler"
+	"github.com/mrPTqp/metrics/internal/server/api/http/middleware"
 	"github.com/mrPTqp/metrics/internal/server/backup"
 	"github.com/mrPTqp/metrics/internal/server/config"
-	"github.com/mrPTqp/metrics/internal/server/handler"
-	"github.com/mrPTqp/metrics/internal/server/middleware"
 	"github.com/mrPTqp/metrics/internal/server/repository"
 	"github.com/mrPTqp/metrics/internal/server/service"
 	"github.com/mrPTqp/metrics/internal/server/storage"
 	"github.com/mrPTqp/metrics/internal/server/storage/migrations"
-	"github.com/mrPTqp/metrics/internal/crypto"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 // Выделенный слой быстрой инициализации компонентов для запуска
@@ -61,7 +66,10 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) (*AppComponents, error) {
 	}
 
 	baseService := service.NewMetricsService(mr, bs.logger)
-	var ms service.MetricsService = baseService
+	var writer service.MetricWriter = baseService
+	var reader service.MetricReader = baseService
+	var lister service.MetricsLister = baseService
+	var pinger service.Pinger = baseService
 
 	p := storage.NewFileProducer(bs.cfg.BackupFilePath, bs.logger)
 	c := storage.NewFileConsumer(bs.cfg.BackupFilePath, bs.logger)
@@ -69,9 +77,9 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) (*AppComponents, error) {
 
 	var b *backup.Backuper
 	if bs.cfg.SyncBackupToFile {
-		ms = service.NewFileBackupService(baseService, fs, bs.logger)
+		writer = service.NewFileBackupService(baseService, fs, bs.logger)
 	} else {
-		b = backup.NewBackuper(ms, fs, bs.logger)
+		b = backup.NewBackuper(writer, lister, fs, bs.logger)
 	}
 
 	var auditProcessors []audit.AuditProcessor
@@ -91,11 +99,11 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) (*AppComponents, error) {
 	}
 	if len(auditProcessors) > 0 {
 		eventBus = audit.NewEventBus(auditProcessors, 1000, bs.logger)
-		ms = service.NewAuditService(ms, eventBus)
+		writer = service.NewAuditService(writer, eventBus)
 	}
 
 	if bs.cfg.Restore {
-		r := backup.NewRestorer(ms, fs, bs.logger)
+		r := backup.NewRestorer(writer, fs, bs.logger)
 		restoreCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		err := r.Restore(restoreCtx)
 		cancel()
@@ -104,11 +112,11 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) (*AppComponents, error) {
 		}
 	}
 
-	mh := handler.NewMetricHandler(ms, bs.logger)
+	mh := httpHandler.NewMetricHandler(writer, reader, lister, pinger, bs.logger)
 
 	mws := []func(http.Handler) http.Handler{
-		 middleware.LoggingRequestBodyMiddleware,
-		 middleware.GzipMiddleware,
+		middleware.LoggingRequestBodyMiddleware,
+		middleware.GzipMiddleware,
 	}
 
 	if bs.cfg.SecretKey != nil && *bs.cfg.SecretKey != "" {
@@ -121,19 +129,35 @@ func (bs *Bootstrapper) MustRun(ctx context.Context) (*AppComponents, error) {
 			return nil, fmt.Errorf("failed to load private key: %w", err)
 		}
 		mws = append(mws, middleware.DecryptMiddleware(privateKey))
-	}	
+	}
 
-	mws = append(mws, middleware.LoggingMiddleware(bs.logger))	
+	mws = append(mws, middleware.LoggingMiddleware(bs.logger))
+
+	if bs.cfg.TrustedSubnet != nil {
+		mws = append(mws, middleware.SubnetMiddleware(bs.cfg.TrustedSubnet, bs.logger))
+	}
+
+	var grpcServer *grpc.Server
+	if bs.cfg.GRPCEnabled {
+		grpcServer = grpc.NewServer(
+			grpc.UnaryInterceptor(grpcInterceptor.SubnetInterceptor(bs.cfg.TrustedSubnet, bs.logger)),
+		)
+		
+		proto.RegisterMetricsServer(grpcServer, grpcHandler.NewMetricsHandler(writer, bs.logger))
+		reflection.Register(grpcServer)
+	}
 
 	return &AppComponents{
 		Config:          bs.cfg,
 		Logger:          bs.logger,
 		Repo:            mr,
 		Handler:         mh,
+		Writer:          writer,
 		Backuper:        b,
 		Middlewares:     mws,
 		EventBus:        eventBus,
 		AuditProcessors: auditProcessors,
+		GRPCServer:      grpcServer,
 	}, nil
 }
 
@@ -141,9 +165,11 @@ type AppComponents struct {
 	Config          *config.Config
 	Logger          *zap.Logger
 	Repo            repository.MetricRepository
-	Handler         *handler.MetricHandler
+	Handler         *httpHandler.MetricHandler
+	Writer          service.MetricWriter
 	Backuper        *backup.Backuper
 	Middlewares     []func(http.Handler) http.Handler
 	EventBus        *audit.EventBus
 	AuditProcessors []audit.AuditProcessor
+	GRPCServer      *grpc.Server
 }

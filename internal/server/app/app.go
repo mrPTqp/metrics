@@ -3,6 +3,7 @@ package app
 
 import (
 	"context"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"sync"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
 	"github.com/mrPTqp/metrics/internal/contextkey"
 	"github.com/mrPTqp/metrics/internal/server/backup"
@@ -19,12 +21,13 @@ import (
 
 // Структура приложения
 type App struct {
-	cfg      *bootstrap.AppComponents
-	server   *http.Server
-	ticker   *time.Ticker
-	shutdown sync.Once
-	backuper *backup.Backuper
-	repo     repository.MetricRepository
+	cfg        *bootstrap.AppComponents
+	server     *http.Server
+	grpcServer *grpc.Server
+	ticker     *time.Ticker
+	shutdown   sync.Once
+	backuper   *backup.Backuper
+	repo       repository.MetricRepository
 }
 
 // Возвращает новый экземпляр приложения
@@ -54,11 +57,12 @@ func NewApp(components *bootstrap.AppComponents) *App {
 	}
 
 	return &App{
-		cfg:      components,
-		server:   server,
-		ticker:   time.NewTicker(time.Duration(components.Config.StoreInterval) * time.Second),
-		backuper: components.Backuper,
-		repo:     components.Repo,
+		cfg:        components,
+		server:     server,
+		grpcServer: components.GRPCServer,
+		ticker:     time.NewTicker(time.Duration(components.Config.StoreInterval) * time.Second),
+		backuper:   components.Backuper,
+		repo:       components.Repo,
 	}
 }
 
@@ -82,6 +86,23 @@ func (a *App) RunWithContext(ctx context.Context) {
 			logger.Fatal("HTTP server failed to start", zap.Error(err))
 		}
 	}()
+
+	if a.cfg.Config.GRPCEnabled {
+		logger.Info("starting gRPC server", zap.String("address", a.cfg.Config.GRPCAddress.String()))
+
+		go func() {
+			listener, err := net.Listen("tcp", a.cfg.Config.GRPCAddress.String())
+			if err != nil {
+				logger.Fatal("gRPC server failed to listen", zap.Error(err))
+			}
+			logger.Info("gRPC server started successfully")
+			if err := a.grpcServer.Serve(listener); err != nil {
+				logger.Fatal("gRPC server failed to start", zap.Error(err))
+			}
+		}()
+	} else {
+		logger.Info("gRPC server disabled")
+	}
 
 	a.runBackgroundJobs(ctx)
 }
@@ -123,9 +144,14 @@ func (a *App) Shutdown(shutdownCtx context.Context) {
 		logger.Debug("ticker stopped")
 
 		if err := a.server.Shutdown(shutdownCtx); err != nil {
-			logger.Error("server forced to shutdown", zap.Error(err))
+			logger.Error("HTTP server forced to shutdown", zap.Error(err))
 		} else {
-			logger.Info("server stopped gracefully")
+			logger.Info("HTTP server stopped gracefully")
+		}
+
+		if a.cfg.Config.GRPCEnabled && a.grpcServer != nil {
+			a.grpcServer.GracefulStop()
+			logger.Info("gRPC server stopped gracefully")
 		}
 
 		if a.cfg.EventBus != nil {

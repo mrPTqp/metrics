@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 
@@ -9,6 +10,7 @@ import (
 
 type Config struct {
 	Address          models.NetAddress
+	GRPCAddress      models.NetAddress
 	StoreInterval    int
 	Restore          bool
 	BackupFilePath   string
@@ -20,6 +22,8 @@ type Config struct {
 	AuditURL         *string
 	HTTPAuditEnabled bool
 	PrivateKeyPath   *string
+	TrustedSubnet    *net.IPNet
+	GRPCEnabled      bool
 }
 
 // Загрузка конфигурации
@@ -35,6 +39,12 @@ func LoadConfig() *Config {
 	address := pickValue(envs.Address, flags.Address, jsonConfig.Address, "localhost:8080")
 	if err := na.SetAddress(address); err != nil {
 		panic("invalid address: " + address + " error: " + err.Error())
+	}
+
+	grpcNa := models.NetAddress{}
+	grpcAddress := pickValue(envs.GRPCAddress, flags.GRPCAddress, jsonConfig.GRPCAddress, "localhost:8081")
+	if err := grpcNa.SetAddress(grpcAddress); err != nil {
+		panic("invalid gRPC address: " + grpcAddress + " error: " + err.Error())
 	}
 
 	storeInterval := pickValue(envs.StoreInterval, flags.StoreInterval, jsonConfig.StoreInterval, 300)
@@ -57,9 +67,22 @@ func LoadConfig() *Config {
 
 	auditURL := pickValue(envs.AuditURL, flags.AuditURL, jsonConfig.AuditURL, "")
 	privateKeyPath := pickValue(envs.PrivateKeyPath, flags.PrivateKeyPath, jsonConfig.PrivateKeyPath, "")
+	
+	trustedSubnet := pickValue(envs.TrustedSubnet, flags.TrustedSubnet, jsonConfig.TrustedSubnet, "")
+	var parsedTrustedSubnet *net.IPNet
+	if trustedSubnet != "" {
+		_, subnet, err := net.ParseCIDR(trustedSubnet)
+		if err != nil {
+			panic("invalid trusted subnet: " + err.Error())
+		}
+		parsedTrustedSubnet = subnet
+	}
+
+	grpcEnabled := pickValue(envs.GRPCEnabled, flags.GRPCEnabled, jsonConfig.GRPCEnabled, false)
 
 	return &Config{
 		Address:          na,
+		GRPCAddress:      grpcNa,
 		StoreInterval:    storeInterval,
 		Restore:          restore,
 		BackupFilePath:   fileStoragePath,
@@ -71,6 +94,8 @@ func LoadConfig() *Config {
 		AuditURL:         &auditURL,
 		HTTPAuditEnabled: auditURL != "",
 		PrivateKeyPath:   &privateKeyPath,
+		TrustedSubnet:    parsedTrustedSubnet,
+		GRPCEnabled:      grpcEnabled,
 	}
 }
 

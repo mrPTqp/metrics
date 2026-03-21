@@ -82,7 +82,7 @@ func (mh *MetricHandler) SaveMetricsHandlerJSON(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	err := mh.service.SaveAllMetrics(r.Context(), gauges, counters)
+	err := mh.writer.SaveAllMetrics(r.Context(), gauges, counters)
 	if err != nil {
 		mh.logger.Error("error processing metrics", zap.Any("gauges", gauges), zap.Any("counters", counters), zap.Error(err))
 		mh.writeJSONError(w, "processing metrics failed", http.StatusBadRequest)
@@ -100,7 +100,7 @@ func (mh *MetricHandler) handleSaveGaugeJSON(w http.ResponseWriter, ctx context.
 		return
 	}
 
-	err := mh.service.SaveGaugeMetric(ctx, req.ID, req.Value)
+	err := mh.writer.SaveGaugeMetric(ctx, req.ID, req.Value)
 	if err != nil {
 		log := contextkey.LoggerFromContext(ctx)
 		log.Error("error processing gauge metric",
@@ -127,7 +127,7 @@ func (mh *MetricHandler) handleSaveCounterJSON(w http.ResponseWriter, ctx contex
 		return
 	}
 
-	err := mh.service.SaveCounterMetric(ctx, req.ID, req.Delta)
+	err := mh.writer.SaveCounterMetric(ctx, req.ID, req.Delta)
 	if err != nil {
 		log := contextkey.LoggerFromContext(ctx)
 		log.Error("error processing counter metric",
@@ -178,7 +178,7 @@ func (mh *MetricHandler) ValueMetricHandlerJSON(w http.ResponseWriter, r *http.R
 }
 
 func (mh *MetricHandler) handleGetGaugeJSON(w http.ResponseWriter, ctx context.Context, req models.Metrics) {
-	value, err := mh.service.GetGaugeMetric(ctx, req.ID)
+	value, err := mh.reader.GetGaugeMetric(ctx, req.ID)
 	if err != nil {
 		mh.logger.Error("error getting gauge metric",
 			zap.Any("name", req.ID),
@@ -202,7 +202,7 @@ func (mh *MetricHandler) handleGetGaugeJSON(w http.ResponseWriter, ctx context.C
 }
 
 func (mh *MetricHandler) handleGetCounterJSON(w http.ResponseWriter, ctx context.Context, req models.Metrics) {
-	value, err := mh.service.GetCounterMetric(ctx, req.ID)
+	value, err := mh.reader.GetCounterMetric(ctx, req.ID)
 	if err != nil {
 		mh.logger.Error("error getting counter metric",
 			zap.Any("name", req.ID),
